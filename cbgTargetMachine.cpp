@@ -1,4 +1,4 @@
-//===-- SparcTargetMachine.cpp - Define TargetMachine for Sparc -----------===//
+//===-- cbgTargetMachine.cpp - Define TargetMachine for cbg -----------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -24,12 +24,12 @@ extern "C" void LLVMInitializecbgTarget() {
   RegisterAsmInfo<cbgELFMCAsmInfo> A(ThecbgTarget);
 }
 
-/// SparcTargetMachine ctor - Create an ILP32 architecture model
+/// cbgTargetMachine ctor - Create an ILP32 architecture model
 ///
 cbgTargetMachine::cbgTargetMachine(const Target &T, const std::string &TT, 
-                                       const std::string &FS, bool is64bit)
+                                       const std::string &FS)
   : LLVMTargetMachine(T, TT),
-    Subtarget(TT, FS, is64bit),
+    Subtarget(TT, FS),
     DataLayout(Subtarget.getDataLayout()),
     TLInfo(*this), TSInfo(*this), InstrInfo(Subtarget),
     FrameLowering(Subtarget) {
@@ -54,5 +54,5 @@ bool cbgTargetMachine::addPreEmitPass(PassManagerBase &PM,
 cbgV8TargetMachine::cbgV8TargetMachine(const Target &T,
                                            const std::string &TT, 
                                            const std::string &FS)
-  : cbgTargetMachine(T, TT, FS, false) {
+  : cbgTargetMachine(T, TT, FS) {
 }

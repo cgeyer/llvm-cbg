@@ -1,4 +1,4 @@
-//===-- SparcMCAsmInfo.cpp - Sparc asm properties -------------------------===//
+//===-- cbgMCAsmInfo.cpp - cbg asm properties -------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the declarations of the SparcMCAsmInfo properties.
+// This file contains the declarations of the cbgMCAsmInfo properties.
 //
 //===----------------------------------------------------------------------===//
 

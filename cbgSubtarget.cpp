@@ -1,4 +1,4 @@
-//===- SparcSubtarget.cpp - SPARC Subtarget Information -------------------===//
+//===- cbgSubtarget.cpp - CBG Subtarget Information -------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the SPARC specific subclass of TargetSubtarget.
+// This file implements the CBG specific subclass of TargetSubtarget.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,20 +15,11 @@
 #include "cbgGenSubtarget.inc"
 using namespace llvm;
 
-cbgSubtarget::cbgSubtarget(const std::string &TT, const std::string &FS, 
-                               bool is64Bit) :
-  IsV9(false),
-  V8DeprecatedInsts(false),
-  IsVIS(false),
-  Is64Bit(is64Bit),
+cbgSubtarget::cbgSubtarget(const std::string &TT, const std::string &FS) :
   IsPins(false) {
   
   // Determine default and user specified characteristics
   const char *CPU = "v8";
-  if (is64Bit) {
-    CPU = "v9";
-    IsV9 = true;
-  }
 
   // Parse features string.
   ParseSubtargetFeatures(FS, CPU);

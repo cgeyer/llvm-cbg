@@ -1,4 +1,4 @@
-//===-- SparcSelectionDAGInfo.h - Sparc SelectionDAG Info -------*- C++ -*-===//
+//===-- cbgSelectionDAGInfo.h - cbg SelectionDAG Info -------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,12 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the Sparc subclass for TargetSelectionDAGInfo.
+// This file defines the cbg subclass for TargetSelectionDAGInfo.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef SPARCSELECTIONDAGINFO_H
-#define SPARCSELECTIONDAGINFO_H
+#ifndef CBGSELECTIONDAGINFO_H
+#define CBGSELECTIONDAGINFO_H
 
 #include "llvm/Target/TargetSelectionDAGInfo.h"
 

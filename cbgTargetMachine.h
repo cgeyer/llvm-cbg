@@ -34,7 +34,7 @@ class cbgTargetMachine : public LLVMTargetMachine {
   cbgFrameLowering FrameLowering;
 public:
   cbgTargetMachine(const Target &T, const std::string &TT,
-                     const std::string &FS, bool is64bit);
+                     const std::string &FS);
 
   virtual const cbgInstrInfo *getInstrInfo() const { return &InstrInfo; }
   virtual const TargetFrameLowering  *getFrameLowering() const {
@@ -57,7 +57,7 @@ public:
   virtual bool addPreEmitPass(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
 };
 
-/// SparcV8TargetMachine - Sparc 32-bit target machine
+/// cbgV8TargetMachine - cbg 32-bit target machine
 ///
 class cbgV8TargetMachine : public cbgTargetMachine {
 public:

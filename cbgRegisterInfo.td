@@ -1,4 +1,4 @@
-//===- SparcRegisterInfo.td - Sparc Register defs ----------*- tablegen -*-===//
+//===- cbgRegisterInfo.td - cbg Register defs ----------*- tablegen -*-===//
 // 
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,12 +11,12 @@
 //  Declarations that describe the Sparc register file 
 //===----------------------------------------------------------------------===//
 
-class SparcReg<string n> : Register<n> {
+class cbgReg<string n> : Register<n> {
   field bits<5> Num;
   let Namespace = "CBG";
 }
 
-class SparcCtrlReg<string n>: Register<n> {
+class cbgCtrlReg<string n>: Register<n> {
   let Namespace = "CBG";
 }
 
@@ -27,26 +27,26 @@ def sub_odd  : SubRegIndex;
 
 // Registers are identified with 5-bit ID numbers.
 // Ri - 32-bit integer registers
-class Ri<bits<5> num, string n> : SparcReg<n> {
+class Ri<bits<5> num, string n> : cbgReg<n> {
   let Num = num;
 }
 // Rf - 32-bit floating-point registers
-class Rf<bits<5> num, string n> : SparcReg<n> {
+class Rf<bits<5> num, string n> : cbgReg<n> {
   let Num = num;
 }
 // Rd - Slots in the FP register file for 64-bit floating-point values.
-class Rd<bits<5> num, string n, list<Register> subregs> : SparcReg<n> {
+class Rd<bits<5> num, string n, list<Register> subregs> : cbgReg<n> {
   let Num = num;
   let SubRegs = subregs;
   let SubRegIndices = [sub_even, sub_odd];
 }
 
 // Control Registers
-def ICC : SparcCtrlReg<"ICC">;
-def FCC : SparcCtrlReg<"FCC">;
+def ICC : cbgCtrlReg<"ICC">;
+def FCC : cbgCtrlReg<"FCC">;
 
 // Y register
-def Y : SparcCtrlReg<"Y">;
+def Y : cbgCtrlReg<"Y">;
 
 // Integer registers
 def G0 : Ri< 0, "G0">, DwarfRegNum<[0]>;

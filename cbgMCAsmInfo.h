@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the declaration of the SparcMCAsmInfo class.
+// This file contains the declaration of the cbgMCAsmInfo class.
 //
 //===----------------------------------------------------------------------===//
 

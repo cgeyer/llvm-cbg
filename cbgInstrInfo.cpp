@@ -1,4 +1,4 @@
-//===- SparcInstrInfo.cpp - Sparc Instruction Information -------*- C++ -*-===//
+//===- cbgInstrInfo.cpp - cbg Instruction Information -------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the Sparc implementation of the TargetInstrInfo class.
+// This file contains the cbg implementation of the TargetInstrInfo class.
 //
 //===----------------------------------------------------------------------===//
 

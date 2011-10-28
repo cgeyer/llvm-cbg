@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the interfaces that Sparc uses to lower LLVM code into a
+// This file defines the interfaces that cbg uses to lower LLVM code into a
 // selection DAG.
 //
 //===----------------------------------------------------------------------===//
@@ -106,4 +106,4 @@ namespace llvm {
   };
 } // end namespace llvm
 
-#endif    // SPARC_ISELLOWERING_H
+#endif    // CBG_ISELLOWERING_H

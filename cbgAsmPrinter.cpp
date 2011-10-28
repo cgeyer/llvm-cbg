@@ -247,5 +247,4 @@ isBlockOnlyReachableByFallthrough(const MachineBasicBlock *MBB) const {
 // Force static initialization.
 extern "C" void LLVMInitializecbgAsmPrinter() {
   RegisterAsmPrinter<cbgAsmPrinter> X(ThecbgTarget);
-//  RegisterAsmPrinter<cbgAsmPrinter> Y(TheSparcV9Target);
 }

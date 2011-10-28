@@ -1,4 +1,4 @@
-##===- lib/Target/Sparc/TargetInfo/Makefile ----------------*- Makefile -*-===##
+##===- lib/Target/cbg/TargetInfo/Makefile ----------------*- Makefile -*-===##
 #
 #                     The LLVM Compiler Infrastructure
 #

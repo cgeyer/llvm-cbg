@@ -20,18 +20,11 @@
 namespace llvm {
 
 class cbgSubtarget : public TargetSubtarget {
-  bool IsV9;
-  bool V8DeprecatedInsts;
-  bool IsVIS;
-  bool Is64Bit;
   bool IsPins;
   
 public:
-  cbgSubtarget(const std::string &TT, const std::string &FS, bool is64bit);
+  cbgSubtarget(const std::string &TT, const std::string &FS);
 
-  /*bool isV9() const { return IsV9; }
-  bool isVIS() const { return IsVIS; }
-  bool useDeprecatedV8Instructions() const { return V8DeprecatedInsts; }*/
   bool usePredicatedInstructions() const { return IsPins; }
   
   /// ParseSubtargetFeatures - Parses features string setting specified 
@@ -39,14 +32,9 @@ public:
   std::string ParseSubtargetFeatures(const std::string &FS,
                                      const std::string &CPU);
   
-  bool is64Bit() const { return Is64Bit; }
   std::string getDataLayout() const {
     const char *p;
-    /*if (is64Bit()) {
-      p = "E-p:64:64:64-i64:64:64-f64:64:64-f128:128:128-n32:64";
-    } else {*/
-      p = "E-p:32:32:32-i64:64:64-f64:64:64-f128:64:64-n32";
-    /*}*/
+    p = "E-p:32:32:32-i64:64:64-f64:64:64-f128:64:64-n32";
     return std::string(p);
   }
 };

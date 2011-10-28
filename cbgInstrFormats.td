@@ -1,4 +1,4 @@
-//===- SparcInstrFormats.td - Sparc Instruction Formats ----*- tablegen -*-===//
+//===- cbgInstrFormats.td - cbg Instruction Formats ----*- tablegen -*-===//
 // 
 //                     The LLVM Compiler Infrastructure
 //
@@ -22,7 +22,7 @@ class InstSP<dag outs, dag ins, string asmstr, list<dag> pattern> : Instruction 
 }
 
 //===----------------------------------------------------------------------===//
-// Format #2 instruction classes in the Sparc
+// Format #2 instruction classes in the cbg
 //===----------------------------------------------------------------------===//
 
 // Format 2 instructions

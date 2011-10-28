@@ -1,4 +1,4 @@
-//===-- SparcSelectionDAGInfo.cpp - Sparc SelectionDAG Info ---------------===//
+//===-- cbgSelectionDAGInfo.cpp - cbg SelectionDAG Info ---------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the SparcSelectionDAGInfo class.
+// This file implements the cbgSelectionDAGInfo class.
 //
 //===----------------------------------------------------------------------===//
 

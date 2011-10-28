@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines an instruction selector for the SPARC target.
+// This file defines an instruction selector for the CBG target.
 //
 //===----------------------------------------------------------------------===//
 
@@ -30,7 +30,7 @@ using namespace llvm;
 ///
 namespace {
 class cbgDAGToDAGISel : public SelectionDAGISel {
-  /// Subtarget - Keep a pointer to the Sparc Subtarget around so that we can
+  /// Subtarget - Keep a pointer to the cbg Subtarget around so that we can
   /// make the right decision when generating code for different targets.
   const cbgSubtarget &Subtarget;
   cbgTargetMachine& TM;
@@ -204,8 +204,8 @@ cbgDAGToDAGISel::SelectInlineAsmMemoryOperand(const SDValue &Op,
   return false;
 }
 
-/// createSparcISelDag - This pass converts a legalized DAG into a
-/// SPARC-specific DAG, ready for instruction scheduling.
+/// createcbgISelDag - This pass converts a legalized DAG into a
+/// CBG-specific DAG, ready for instruction scheduling.
 ///
 FunctionPass *llvm::createcbgISelDag(cbgTargetMachine &TM) {
   return new cbgDAGToDAGISel(TM);

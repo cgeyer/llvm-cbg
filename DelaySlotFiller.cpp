@@ -46,7 +46,7 @@ namespace {
       : MachineFunctionPass(ID), TM(tm), TII(tm.getInstrInfo()) { }
 
     virtual const char *getPassName() const {
-      return "SPARC Delay Slot Filler";
+      return "CBG Delay Slot Filler";
     }
 
     bool runOnMachineBasicBlock(MachineBasicBlock &MBB);
@@ -85,8 +85,8 @@ namespace {
   char Filler::ID = 0;
 } // end of anonymous namespace
 
-/// createSparcDelaySlotFillerPass - Returns a pass that fills in delay
-/// slots in Sparc MachineFunctions
+/// createcbgDelaySlotFillerPass - Returns a pass that fills in delay
+/// slots in cbg MachineFunctions
 ///
 FunctionPass *llvm::createcbgDelaySlotFillerPass(TargetMachine &tm) {
   return new Filler(tm);

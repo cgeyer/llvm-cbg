@@ -1,4 +1,4 @@
-//===- cbgInstrInfo.td - Target Description for Sparc Target ------------===//
+//===- cbgInstrInfo.td - Target Description for cbg Target ------------===//
 // 
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,7 +7,7 @@
 // 
 //===----------------------------------------------------------------------===//
 //
-// This file describes the Sparc instructions in TableGen format.
+// This file describes the cbg instructions in TableGen format.
 //
 //===----------------------------------------------------------------------===//
 
@@ -138,7 +138,7 @@ def getPCX        : Operand<i32> {
 }
 
 //===----------------------------------------------------------------------===//
-// SPARC Flag Conditions
+// CBG Flag Conditions
 //===----------------------------------------------------------------------===//
 
 // Note that these values must be kept in sync with the CCOp::CondCode enum

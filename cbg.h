@@ -1,4 +1,4 @@
-//===-- cbg.h - Top-level interface for Sparc representation --*- C++ -*-===//
+//===-- cbg.h - Top-level interface for cbg representation --*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 //
 // This file contains the entry points for global functions defined in the LLVM
-// Sparc back-end.
+// cbg back-end.
 //
 //===----------------------------------------------------------------------===//
 
@@ -29,22 +29,21 @@ namespace llvm {
   FunctionPass *createcbgFPMoverPass(TargetMachine &TM);
 
   extern Target ThecbgTarget;
-//  extern Target TheSparcV9Target;
 
 } // end namespace llvm;
 
-// Defines symbolic names for Sparc registers.  This defines a mapping from
+// Defines symbolic names for cbg registers.  This defines a mapping from
 // register name to register number.
 //
 #include "cbgGenRegisterNames.inc"
 
-// Defines symbolic names for the Sparc instructions.
+// Defines symbolic names for the cbg instructions.
 //
 #include "cbgGenInstrNames.inc"
 
 
 namespace llvm {
-  // Enums corresponding to Sparc condition codes, both icc's and fcc's.  These
+  // Enums corresponding to cbg condition codes, both icc's and fcc's.  These
   // values must be kept in sync with the ones in the .td file.
   namespace CBGCC {
     enum CondCodes {

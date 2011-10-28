@@ -1,4 +1,4 @@
-//===- SparcRegisterInfo.h - Sparc Register Information Impl ----*- C++ -*-===//
+//===- cbgRegisterInfo.h - cbg Register Information Impl ----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,12 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the Sparc implementation of the TargetRegisterInfo class.
+// This file contains the cbg implementation of the TargetRegisterInfo class.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef SPARCREGISTERINFO_H
-#define SPARCREGISTERINFO_H
+#ifndef CBGREGISTERINFO_H
+#define CBGREGISTERINFO_H
 
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "cbgGenRegisterInfo.h.inc"

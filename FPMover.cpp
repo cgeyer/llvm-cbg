@@ -1,4 +1,4 @@
-//===-- FPMover.cpp - Sparc double-precision floating point move fixer ----===//
+//===-- FPMover.cpp - cbg double-precision floating point move fixer ----===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -39,7 +39,7 @@ namespace {
       : MachineFunctionPass(ID), TM(tm) { }
 
     virtual const char *getPassName() const {
-      return "Sparc Double-FP Move Fixer";
+      return "CBG Double-FP Move Fixer";
     }
 
     bool runOnMachineBasicBlock(MachineBasicBlock &MBB);
@@ -48,7 +48,7 @@ namespace {
   char FPMover::ID = 0;
 } // end of anonymous namespace
 
-/// createSparcFPMoverPass - Returns a pass that turns FpMOVD
+/// createcbgFPMoverPass - Returns a pass that turns FpMOVD
 /// instructions into FMOVS instructions
 ///
 FunctionPass *llvm::createcbgFPMoverPass(TargetMachine &tm) {

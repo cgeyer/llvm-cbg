@@ -17,7 +17,7 @@
 include "llvm/Target/Target.td"
 
 //===----------------------------------------------------------------------===//
-// SPARC Subtarget features.
+// CBG Subtarget features.
 //
  
 def FeaturePredicatedInstr

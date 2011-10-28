@@ -1,4 +1,4 @@
-//===-- SparcTargetInfo.cpp - Sparc Target Implementation -----------------===//
+//===-- cbgTargetInfo.cpp - cbg Target Implementation -----------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,9 +13,7 @@
 using namespace llvm;
 
 Target llvm::ThecbgTarget;
-//Target llvm::TheSparcV9Target;
 
 extern "C" void LLVMInitializecbgTargetInfo() {
   RegisterTarget<Triple::cbg> X(ThecbgTarget, "cbg", "CBG");
-//  RegisterTarget<Triple::sparcv9> Y(TheSparcV9Target, "sparcv9", "Sparc V9");
 }

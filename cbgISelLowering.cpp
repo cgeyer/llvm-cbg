@@ -1,5 +1,5 @@
 
-//===-- cbgISelLowering.cpp - Cbg DAG Lowering Implementation ---------===//
+//===-- cbgISelLowering.cpp - cbg DAG Lowering Implementation ---------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the interfaces that Cbg uses to lower LLVM code into a
+// This file implements the interfaces that cbg uses to lower LLVM code into a
 // selection DAG.
 //
 //===----------------------------------------------------------------------===//
@@ -279,7 +279,7 @@ cbgTargetLowering::LowerFormalArguments(SDValue Chain,
                          false, false, 0);
     } else {
       ISD::LoadExtType LoadOp = ISD::SEXTLOAD;
-      // Sparc is big endian, so add an offset based on the ObjectVT.
+      // cbg is big endian, so add an offset based on the ObjectVT.
       unsigned Offset = 4-std::max(1U, VA.getValVT().getSizeInBits()/8);
       FIPtr = DAG.getNode(ISD::ADD, dl, MVT::i32, FIPtr,
                           DAG.getConstant(Offset, MVT::i32));
@@ -357,7 +357,7 @@ cbgTargetLowering::LowerCall(SDValue Chain, SDValue Callee,
                                const SmallVectorImpl<ISD::InputArg> &Ins,
                                DebugLoc dl, SelectionDAG &DAG,
                                SmallVectorImpl<SDValue> &InVals) const {
-  // Sparc target does not yet support tail call optimization.
+  // cbg target does not yet support tail call optimization.
   isTailCall = false;
 
   // Analyze operands of the call, assigning locations to each operand.
@@ -468,7 +468,7 @@ cbgTargetLowering::LowerCall(SDValue Chain, SDValue Callee,
       SDValue Store = DAG.getStore(DAG.getEntryNode(), dl,
                                    Arg, StackPtr, MachinePointerInfo(),
                                    false, false, 0);
-      // Sparc is big-endian, so the high part comes first.
+      // cbg is big-endian, so the high part comes first.
       SDValue Hi = DAG.getLoad(MVT::i32, dl, Store, StackPtr,
                                MachinePointerInfo(), false, false, 0);
       // Increment the pointer to the other half.
