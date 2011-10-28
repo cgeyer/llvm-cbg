@@ -20,7 +20,8 @@ cbgSubtarget::cbgSubtarget(const std::string &TT, const std::string &FS,
   IsV9(false),
   V8DeprecatedInsts(false),
   IsVIS(false),
-  Is64Bit(is64Bit) {
+  Is64Bit(is64Bit),
+  IsPins(false) {
   
   // Determine default and user specified characteristics
   const char *CPU = "v8";

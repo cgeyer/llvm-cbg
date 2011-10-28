@@ -798,8 +798,8 @@ cbgTargetLowering::cbgTargetLowering(TargetMachine &TM)
 
   setStackPointerRegisterToSaveRestore(CBG::O6);
 
-  if (TM.getSubtarget<cbgSubtarget>().isV9())
-    setOperationAction(ISD::CTPOP, MVT::i32, Legal);
+  /*if (TM.getSubtarget<cbgSubtarget>().isV9())
+    setOperationAction(ISD::CTPOP, MVT::i32, Legal);*/
 
   computeRegisterProperties();
 }

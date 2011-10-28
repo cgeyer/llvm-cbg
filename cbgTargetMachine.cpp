@@ -20,11 +20,8 @@ using namespace llvm;
 extern "C" void LLVMInitializecbgTarget() {
   // Register the target.
   RegisterTargetMachine<cbgV8TargetMachine> X(ThecbgTarget);
-//  RegisterTargetMachine<SparcV9TargetMachine> Y(TheSparcV9Target);
 
   RegisterAsmInfo<cbgELFMCAsmInfo> A(ThecbgTarget);
-//  RegisterAsmInfo<SparcELFMCAsmInfo> B(TheSparcV9Target);
-
 }
 
 /// SparcTargetMachine ctor - Create an ILP32 architecture model
@@ -59,11 +56,3 @@ cbgV8TargetMachine::cbgV8TargetMachine(const Target &T,
                                            const std::string &FS)
   : cbgTargetMachine(T, TT, FS, false) {
 }
-
-/*
-SparcV9TargetMachine::SparcV9TargetMachine(const Target &T, 
-                                           const std::string &TT, 
-                                           const std::string &FS)
-  : cbgTargetMachine(T, TT, FS, true) {
-}
-*/

@@ -1,4 +1,4 @@
-//===- Sparc.td - Describe the Sparc Target Machine --------*- tablegen -*-===//
+//===- cbg.td - Describe the cbg Target Machine --------*- tablegen -*-===//
 // 
 //                     The LLVM Compiler Infrastructure
 //
@@ -20,15 +20,9 @@ include "llvm/Target/Target.td"
 // SPARC Subtarget features.
 //
  
-def FeatureV9
-  : SubtargetFeature<"v9", "IsV9", "true",
-                     "Enable SPARC-V9 instructions">;
-def FeatureV8Deprecated
-  : SubtargetFeature<"deprecated-v8", "V8DeprecatedInsts", "true",
-                     "Enable deprecated V8 instructions in V9 mode">;
-def FeatureVIS
-  : SubtargetFeature<"vis", "IsVIS", "true",
-                     "Enable UltraSPARC Visual Instruction Set extensions">;
+def FeaturePredicatedInstr
+  : SubtargetFeature<"pins", "IsPins", "true",
+                     "Enable predicated instructions">;
 
 //===----------------------------------------------------------------------===//
 // Register File, Calling Conv, Instruction Descriptions
@@ -47,19 +41,8 @@ def cbgInstrInfo : InstrInfo;
 class Proc<string Name, list<SubtargetFeature> Features>
  : Processor<Name, NoItineraries, Features>;
 
-def : Proc<"generic",         []>;
 def : Proc<"v8",              []>;
-def : Proc<"supersparc",      []>;
-def : Proc<"sparclite",       []>;
-def : Proc<"f934",            []>;
-def : Proc<"hypersparc",      []>;
-def : Proc<"sparclite86x",    []>;
-def : Proc<"sparclet",        []>;
-def : Proc<"tsc701",          []>;
-def : Proc<"v9",              [FeatureV9]>;
-def : Proc<"ultrasparc",      [FeatureV9, FeatureV8Deprecated]>;
-def : Proc<"ultrasparc3",     [FeatureV9, FeatureV8Deprecated]>;
-def : Proc<"ultrasparc3-vis", [FeatureV9, FeatureV8Deprecated, FeatureVIS]>;
+def : Proc<"v8-pred",         [FeaturePredicatedInstr]>;
 
 
 //===----------------------------------------------------------------------===//

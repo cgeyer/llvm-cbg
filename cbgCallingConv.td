@@ -1,4 +1,4 @@
-//===- SparcCallingConv.td - Calling Conventions Sparc -----*- tablegen -*-===//
+//===- cbgCallingConv.td - Calling Conventions cbg -----*- tablegen -*-===//
 // 
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,7 +7,7 @@
 // 
 //===----------------------------------------------------------------------===//
 //
-// This describes the calling conventions for the Sparc architectures.
+// This describes the calling conventions for the cbg architectures.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,14 +15,14 @@
 // Return Value Calling Conventions
 //===----------------------------------------------------------------------===//
 
-// Sparc 32-bit C return-value convention.
+// cbg 32-bit C return-value convention.
 def RetCC_Sparc32 : CallingConv<[
   CCIfType<[i32], CCAssignToReg<[I0, I1, I2, I3, I4, I5]>>,
   CCIfType<[f32], CCAssignToReg<[F0, F1, F2, F3]>>,
   CCIfType<[f64], CCAssignToReg<[D0, D1]>>
 ]>;
 
-// Sparc 32-bit C Calling convention.
+// cbg 32-bit C Calling convention.
 def CC_Sparc32 : CallingConv<[
   //Custom assign SRet to [sp+64].
   CCIfSRet<CCCustom<"CC_Sparc_Assign_SRet">>,

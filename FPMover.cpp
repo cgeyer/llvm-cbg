@@ -130,8 +130,8 @@ bool FPMover::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
 bool FPMover::runOnMachineFunction(MachineFunction &F) {
   // If the target has V9 instructions, the fp-mover pseudos will never be
   // emitted.  Avoid a scan of the instructions to improve compile time.
-  if (TM.getSubtarget<cbgSubtarget>().isV9())
-    return false;
+  /*if (TM.getSubtarget<cbgSubtarget>().isV9())
+    return false;*/
   
   bool Changed = false;
   for (MachineFunction::iterator FI = F.begin(), FE = F.end();

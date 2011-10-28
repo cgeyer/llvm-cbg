@@ -272,9 +272,9 @@ void cbgInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
   else if (CBG::FPRegsRegClass.contains(DestReg, SrcReg))
     BuildMI(MBB, I, DL, get(CBG::FMOVS), DestReg)
       .addReg(SrcReg, getKillRegState(KillSrc));
-  else if (CBG::DFPRegsRegClass.contains(DestReg, SrcReg))
+  /*else if (CBG::DFPRegsRegClass.contains(DestReg, SrcReg))
     BuildMI(MBB, I, DL, get(Subtarget.isV9() ? CBG::FMOVD : CBG::FpMOVD), DestReg)
-      .addReg(SrcReg, getKillRegState(KillSrc));
+      .addReg(SrcReg, getKillRegState(KillSrc));*/
   else
     llvm_unreachable("Impossible reg-to-reg copy");
 }

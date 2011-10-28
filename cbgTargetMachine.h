@@ -1,4 +1,4 @@
-//===-- SparcTargetMachine.h - Define TargetMachine for Sparc ---*- C++ -*-===//
+//===-- cbgTargetMachine.h - Define TargetMachine for cbg ---*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,12 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file declares the Sparc specific subclass of TargetMachine.
+// This file declares the cbg specific subclass of TargetMachine.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef SPARCTARGETMACHINE_H
-#define SPARCTARGETMACHINE_H
+#ifndef CBGTARGETMACHINE_H
+#define CBGTARGETMACHINE_H
 
 #include "cbgInstrInfo.h"
 #include "cbgISelLowering.h"
@@ -62,14 +62,6 @@ public:
 class cbgV8TargetMachine : public cbgTargetMachine {
 public:
   cbgV8TargetMachine(const Target &T, const std::string &TT,
-                       const std::string &FS);
-};
-
-/// SparcV9TargetMachine - Sparc 64-bit target machine
-///
-class SparcV9TargetMachine : public cbgTargetMachine {
-public:
-  SparcV9TargetMachine(const Target &T, const std::string &TT,
                        const std::string &FS);
 };
 
