@@ -132,7 +132,7 @@ bool FPMover::runOnMachineFunction(MachineFunction &F) {
   // emitted.  Avoid a scan of the instructions to improve compile time.
   /*if (TM.getSubtarget<cbgSubtarget>().isV9())
     return false;*/
-  
+
   bool Changed = false;
   for (MachineFunction::iterator FI = F.begin(), FE = F.end();
        FI != FE; ++FI)

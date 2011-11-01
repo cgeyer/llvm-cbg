@@ -39,7 +39,15 @@ include "cbgInstrFormats.td"
 // will pick deprecated instructions.
 //def UseDeprecatedInsts : Predicate<"Subtarget.useDeprecatedV8Instructions()">;
 
-def UsePredicatedInstr : Predicate<"Subtarget.usePredicatedInstructions()">;
+def HasSelCC : Predicate<"Subtarget.hasSelCC()">;
+def HasMovCC : Predicate<"Subtarget.hasMovCC()">;
+def HasPredBlocksCC : Predicate<"Subtarget.hasPredBlocksCC()">;
+def HasPredBlocksReg : Predicate<"Subtarget.hasPredBlocksReg()">;
+def HasPredInstrCC : Predicate<"Subtarget.hasPredInstrCC()">;
+def HasPredInstrReg : Predicate<"Subtarget.hasPredInstrReg()">;
+def HasHWLoop : Predicate<"Subtarget.hasHWLoop()">;
+def HasHWLoops : Predicate<"Subtarget.hasHWLoops()">;
+def HasVLIWIfElse : Predicate<"Subtarget.hasVLIWIfElse()">;
 
 //===----------------------------------------------------------------------===//
 // Instruction Pattern Stuff
@@ -217,10 +225,10 @@ let Defs = [O7] in {
 
 let Defs = [O6], Uses = [O6] in {
 def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt),
-                               "!ADJCALLSTACKDOWN $amt",
+                               ";ADJCALLSTACKDOWN $amt",
                                [(callseq_start timm:$amt)]>;
 def ADJCALLSTACKUP : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
-                            "!ADJCALLSTACKUP $amt1",
+                            ";ADJCALLSTACKUP $amt1",
                             [(callseq_end timm:$amt1, timm:$amt2)]>;
 }
 
@@ -242,12 +250,12 @@ def UNIMP : F2_1<0b000, (outs), (ins i32imm:$val),
 // fpmover pass.
 //let Predicates = [HasNoV9] in {  // Only emit these in V8 mode.
   def FpMOVD : Pseudo<(outs DFPRegs:$dst), (ins DFPRegs:$src),
-                      "!FpMOVD $src, $dst", []>;
+                      ";FpMOVD $src, $dst", []>;
   def FpNEGD : Pseudo<(outs DFPRegs:$dst), (ins DFPRegs:$src),
-                      "!FpNEGD $src, $dst",
+                      ";FpNEGD $src, $dst",
                       [(set DFPRegs:$dst, (fneg DFPRegs:$src))]>;
   def FpABSD : Pseudo<(outs DFPRegs:$dst), (ins DFPRegs:$src),
-                      "!FpABSD $src, $dst",
+                      ";FpABSD $src, $dst",
                       [(set DFPRegs:$dst, (fabs DFPRegs:$src))]>;
 //}
 
@@ -692,6 +700,41 @@ let Defs = [FCC] in {
                    (outs), (ins DFPRegs:$src1, DFPRegs:$src2),
                    "fcmpd $src1, $src2\n\tnop",
                    [(SPcmpfcc DFPRegs:$src1, DFPRegs:$src2)]>;
+}
+
+//===----------------------------------------------------------------------===//
+// Predicated CBG Instructions
+//===----------------------------------------------------------------------===//
+
+//let Predicates = [HasSelCC], Uses = [ICC] in {
+//  def SELcc 
+//    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, CCOp:$cc),
+//             "sel$cc $src1, $src2, $dst",
+//             [(set IntRegs:$dst,
+//                          (SPselecticc IntRegs:$src1, IntRegs:$src2, imm:$cc))]>;
+//}
+
+let Predicates = [HasSelCC], Uses = [ICC] in {
+  def SELcc_ii
+    : Pseudo<(outs IntRegs:$dst), (ins  i32imm:$im1, i32imm:$im2, CCOp:$cc),
+             "sel$cc $im1, $im2, $dst",
+             [(set IntRegs:$dst, 
+                          (SPselecticc simm11:$im1, simm11:$im2, imm:$cc))]>;
+  def SELcc_ri
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$im2, CCOp:$cc),
+             "sel$cc $src1, $im2, $dst",
+             [(set IntRegs:$dst,
+                          (SPselecticc IntRegs:$src1, simm11:$im2, imm:$cc))]>;
+//  def SELcc_ir
+//    : Pseudo<(outs IntRegs:$dst), (ins i32imm:$im1, IntRegs:$src2, CCOp:$cc),
+//             "sel$cc $im1, $src2, $dst",
+//             [(set IntRegs:$dst,
+//                          (SPselecticc simm11:$im1, IntRegs:$src2, imm:$cc))]>;
+  def SELcc_rr
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, CCOp:$cc),
+             "sel$cc $src1, $src2, $dst",
+             [(set IntRegs:$dst,
+                          (SPselecticc IntRegs:$src1, IntRegs:$src2, imm:$cc))]>;
 }
 
 //===----------------------------------------------------------------------===//

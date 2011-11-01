@@ -16,6 +16,7 @@
 #define CBG_ISELLOWERING_H
 
 #include "llvm/Target/TargetLowering.h"
+#include "cbgSubtarget.h"
 #include "cbg.h"
 
 namespace llvm {
@@ -42,6 +43,7 @@ namespace llvm {
   }
 
   class cbgTargetLowering : public TargetLowering {
+    const cbgSubtarget* ST;
   public:
     cbgTargetLowering(TargetMachine &TM);
     virtual SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const;

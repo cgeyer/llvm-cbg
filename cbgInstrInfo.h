@@ -14,6 +14,7 @@
 #ifndef CBGINSTRUCTIONINFO_H
 #define CBGINSTRUCTIONINFO_H
 
+#include "cbg.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "cbgRegisterInfo.h"
 
@@ -29,6 +30,10 @@ namespace SPII {
     Store = (1<<2),
     DelaySlot = (1<<3)
   };
+}
+
+namespace CBG {
+  CBGCC::CondCodes getOppositeBranchCondition(CBGCC::CondCodes CC);
 }
 
 class cbgInstrInfo : public TargetInstrInfoImpl {

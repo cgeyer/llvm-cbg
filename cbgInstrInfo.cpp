@@ -72,7 +72,8 @@ static bool IsIntegerCC(unsigned CC)
 }
 
 
-static CBGCC::CondCodes GetOppositeBranchCondition(CBGCC::CondCodes CC)
+
+CBGCC::CondCodes CBG::getOppositeBranchCondition(CBGCC::CondCodes CC)
 {
   switch(CC) {
   default: llvm_unreachable("Unknown condition code");
@@ -107,6 +108,7 @@ static CBGCC::CondCodes GetOppositeBranchCondition(CBGCC::CondCodes CC)
   case CBGCC::FCC_E:    return CBGCC::FCC_NE;
   }
 }
+
 
 
 bool cbgInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
@@ -185,7 +187,7 @@ bool cbgInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
         //   ...
         // L2:
         //
-        BranchCode = GetOppositeBranchCondition(BranchCode);
+        BranchCode = CBG::getOppositeBranchCondition(BranchCode);
         MachineBasicBlock::iterator OldInst = I;
         BuildMI(MBB, UnCondBrIter, MBB.findDebugLoc(I), get(Opcode))
           .addMBB(UnCondBrIter->getOperand(0).getMBB()).addImm(BranchCode);

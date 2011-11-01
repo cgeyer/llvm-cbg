@@ -28,6 +28,9 @@
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/ADT/VectorExtras.h"
 #include "llvm/Support/ErrorHandling.h"
+
+#include <iostream>
+
 using namespace llvm;
 
 
@@ -690,7 +693,7 @@ static CBGCC::CondCodes FPCondCCodeToFCC(ISD::CondCode CC) {
 }
 
 cbgTargetLowering::cbgTargetLowering(TargetMachine &TM)
-  : TargetLowering(TM, new TargetLoweringObjectFileELF()) {
+  : TargetLowering(TM, new TargetLoweringObjectFileELF()), ST(&(TM.getSubtarget<cbgSubtarget>())) {
 
   // Set up the register classes.
   addRegisterClass(MVT::i32, CBG::IntRegsRegisterClass);
@@ -966,7 +969,8 @@ static SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) {
                      DAG.getConstant(SPCC, MVT::i32), CompareFlag);
 }
 
-static SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) {
+static SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG, const cbgSubtarget* ST) {
+
   SDValue LHS = Op.getOperand(0);
   SDValue RHS = Op.getOperand(1);
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(4))->get();
@@ -988,6 +992,16 @@ static SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) {
     CompareFlag = DAG.getNode(SPISD::CMPICC, dl, VTs, Ops, 2).getValue(1);
     Opc = SPISD::SELECT_ICC;
     if (SPCC == ~0U) SPCC = IntCondCCodeToICC(CC);
+    // change true and false value if immediate is true value
+    // and reverse condition code
+    if (ST->hasSelCC() && TrueVal.getNumOperands() == 0 && FalseVal.getNumOperands() != 0) {
+//      std::cerr << __func__ << "(): subtarget supports predicated instructions: " << ST->usePredicatedInstructions() << std::endl;
+      SDValue tmpSDNode = TrueVal;
+      TrueVal = FalseVal;
+      FalseVal = tmpSDNode;
+      std::cerr << __func__ << "(): changed order of input values." << std::endl;
+      SPCC = static_cast<unsigned>(CBG::getOppositeBranchCondition(static_cast<CBGCC::CondCodes>(SPCC)));
+    }
   } else {
     CompareFlag = DAG.getNode(SPISD::CMPFCC, dl, MVT::Glue, LHS, RHS);
     Opc = SPISD::SELECT_FCC;
@@ -1151,7 +1165,7 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::FP_TO_SINT:         return LowerFP_TO_SINT(Op, DAG);
   case ISD::SINT_TO_FP:         return LowerSINT_TO_FP(Op, DAG);
   case ISD::BR_CC:              return LowerBR_CC(Op, DAG);
-  case ISD::SELECT_CC:          return LowerSELECT_CC(Op, DAG);
+  case ISD::SELECT_CC:          return LowerSELECT_CC(Op, DAG, this->ST);
   case ISD::VASTART:            return LowerVASTART(Op, DAG, *this);
   case ISD::VAARG:              return LowerVAARG(Op, DAG);
   case ISD::DYNAMIC_STACKALLOC: return LowerDYNAMIC_STACKALLOC(Op, DAG);

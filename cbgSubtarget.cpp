@@ -16,7 +16,15 @@
 using namespace llvm;
 
 cbgSubtarget::cbgSubtarget(const std::string &TT, const std::string &FS) :
-  IsPins(false) {
+    HasSelCC(false),
+    HasMovCC(false),
+    HasPredBlocksCC(false),
+    HasPredBlocksReg(false),
+    HasPredInstrCC(false),
+    HasPredInstrReg(false),
+    HasHWLoop(false),
+    HasHWLoops(false),
+    HasVLIWIfElse(false) {
   
   // Determine default and user specified characteristics
   const char *CPU = "v8";
