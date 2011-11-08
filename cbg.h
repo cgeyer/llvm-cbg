@@ -21,12 +21,16 @@
 
 namespace llvm {
   class FunctionPass;
+  class LoopPass;
   class cbgTargetMachine;
   class formatted_raw_ostream;
 
   FunctionPass *createcbgISelDag(cbgTargetMachine &TM);
   FunctionPass *createcbgDelaySlotFillerPass(TargetMachine &TM);
   FunctionPass *createcbgFPMoverPass(TargetMachine &TM);
+  // Function pass for finding loops which can be transformed
+  // to hardware loops
+  FunctionPass *createcbgHWLoopPass(TargetMachine &TM, unsigned loopDepth);
 
   extern Target ThecbgTarget;
 

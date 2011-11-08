@@ -26,6 +26,9 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <iostream>
+
 using namespace llvm;
 
 namespace {
@@ -218,11 +221,28 @@ bool cbgAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
 /// This overrides AsmPrinter's implementation to handle delay slots.
 bool cbgAsmPrinter::
 isBlockOnlyReachableByFallthrough(const MachineBasicBlock *MBB) const {
+
+  MachineFunction* F = const_cast<MachineFunction*>(MBB->getParent());
+  MachineFunction::iterator mf_iter = F->begin();
+
+  // labels for blocks after a hardware loop are needed to be printed
+  if (MBB != &(*mf_iter)) {
+    mf_iter++;
+    if (MBB != &(*mf_iter)) {
+      MachineBasicBlock* const_mbb = const_cast<MachineBasicBlock*>(MBB->getPrevNode()->getPrevNode());
+      MachineBasicBlock::iterator mbb_iter = const_mbb->end();
+      --mbb_iter;
+      if (mbb_iter->getOpcode() == CBG::HWLOOP) {
+        return false;
+      }
+    }
+  }
+
   // If this is a landing pad, it isn't a fall through.  If it has no preds,
   // then nothing falls through to it.
   if (MBB->isLandingPad() || MBB->pred_empty())
     return false;
-  
+
   // If there isn't exactly one predecessor, it can't be a fall through.
   MachineBasicBlock::const_pred_iterator PI = MBB->pred_begin(), PI2 = PI;
   ++PI2;

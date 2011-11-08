@@ -22,6 +22,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <iostream>
+
 using namespace llvm;
 
 STATISTIC(NumFpDs , "Number of instructions translated");
@@ -132,7 +135,7 @@ bool FPMover::runOnMachineFunction(MachineFunction &F) {
   // emitted.  Avoid a scan of the instructions to improve compile time.
   /*if (TM.getSubtarget<cbgSubtarget>().isV9())
     return false;*/
-
+//  std::cerr << __func__ << std::endl;
   bool Changed = false;
   for (MachineFunction::iterator FI = F.begin(), FE = F.end();
        FI != FE; ++FI)

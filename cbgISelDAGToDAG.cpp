@@ -18,6 +18,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <iostream>
+
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
@@ -135,6 +138,7 @@ bool cbgDAGToDAGISel::SelectADDRrr(SDValue Addr, SDValue &R1, SDValue &R2) {
 }
 
 SDNode *cbgDAGToDAGISel::Select(SDNode *N) {
+//  std::cerr << __func__ << std::endl;
   DebugLoc dl = N->getDebugLoc();
   if (N->isMachineOpcode())
     return NULL;   // Already selected.

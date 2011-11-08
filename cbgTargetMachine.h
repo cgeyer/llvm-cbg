@@ -52,9 +52,17 @@ public:
   }
   virtual const TargetData       *getTargetData() const { return &DataLayout; }
 
+  /*virtual bool addPassesToEmitFile(PassManagerBase &PM,
+                                   formatted_raw_ostream &Out,
+                                   CodeGenFileType FileType,
+                                   CodeGenOpt::Level,
+                                   bool DisableVerify = true);
+
+  virtual bool addPreISel(PassManagerBase &PM, CodeGenOpt::Level OptLevel);*/
   // Pass Pipeline Configuration
   virtual bool addInstSelector(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
   virtual bool addPreEmitPass(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
+
 };
 
 /// cbgV8TargetMachine - cbg 32-bit target machine

@@ -706,14 +706,7 @@ let Defs = [FCC] in {
 // Predicated CBG Instructions
 //===----------------------------------------------------------------------===//
 
-//let Predicates = [HasSelCC], Uses = [ICC] in {
-//  def SELcc 
-//    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, CCOp:$cc),
-//             "sel$cc $src1, $src2, $dst",
-//             [(set IntRegs:$dst,
-//                          (SPselecticc IntRegs:$src1, IntRegs:$src2, imm:$cc))]>;
-//}
-
+// select instructions: support all possibilities
 let Predicates = [HasSelCC], Uses = [ICC] in {
   def SELcc_ii
     : Pseudo<(outs IntRegs:$dst), (ins  i32imm:$im1, i32imm:$im2, CCOp:$cc),
@@ -725,16 +718,34 @@ let Predicates = [HasSelCC], Uses = [ICC] in {
              "sel$cc $src1, $im2, $dst",
              [(set IntRegs:$dst,
                           (SPselecticc IntRegs:$src1, simm11:$im2, imm:$cc))]>;
-//  def SELcc_ir
-//    : Pseudo<(outs IntRegs:$dst), (ins i32imm:$im1, IntRegs:$src2, CCOp:$cc),
-//             "sel$cc $im1, $src2, $dst",
-//             [(set IntRegs:$dst,
-//                          (SPselecticc simm11:$im1, IntRegs:$src2, imm:$cc))]>;
+  def SELcc_ir
+    : Pseudo<(outs IntRegs:$dst), (ins i32imm:$im1, IntRegs:$src2, CCOp:$cc),
+             "sel$cc $im1, $src2, $dst",
+             [(set IntRegs:$dst,
+                          (SPselecticc simm11:$im1, IntRegs:$src2, imm:$cc))]>;
   def SELcc_rr
     : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, CCOp:$cc),
              "sel$cc $src1, $src2, $dst",
              [(set IntRegs:$dst,
                           (SPselecticc IntRegs:$src1, IntRegs:$src2, imm:$cc))]>;
+}
+
+
+// conditional move instructions
+let Predicates = [HasMovCC], Uses = [ICC], Constraints = "$src2 = $dst" in {
+  def MOVcc_rr
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, CCOp:$cc),
+             "mov$cc $src1, $src2",
+             [(set IntRegs:$dst,
+                          (SPselecticc IntRegs:$src1, IntRegs:$src2, imm:$cc))]>;
+}
+
+// hardware loop instruction
+let Predicates = [HasHWLoop], isBranch = 1, isTerminator = 1 in {
+  def HWLOOP 
+    : Pseudo<(outs), (ins brtarget:$src1, brtarget:$src2, i32imm:$bound),
+             "hwloop $src1, $src2, $bound",
+             []>;
 }
 
 //===----------------------------------------------------------------------===//
