@@ -35,9 +35,26 @@ namespace {
   class HWLoopPass : public MachineFunctionPass {
 
   public:
-//    typedef std::list<MachineBasicBlock*> MBB_list;
     typedef PredecessorList::MBB_list MBB_list;
     static char ID;
+
+    struct LoopBounds {
+      bool isValidLoop;
+      bool needsIncrement;
+      MachineOperand LoopBound;
+      unsigned IndexVar;
+    };
+
+  private:
+    static bool isIncrement(const MachineInstr &instr);
+    static bool isDecrement(const MachineInstr &instr);
+    static bool isNoDestination(unsigned regNumber,
+                                MachineBasicBlock &MBB,
+                                MachineBasicBlock::reverse_iterator &mbb_iter);
+
+    static bool machineBasicBlockInSet(MachineBasicBlock* const &MBB, MBB_list &mbb_set);
+    static LoopBounds findLoopBound(MachineBasicBlock &MBB);
+    static void updatePredecessors(MachineBasicBlock* newMBB, MachineBasicBlock* MBB);
 
   protected:
     TargetMachine &TM;
@@ -45,7 +62,8 @@ namespace {
     unsigned LoopCount;
 
     virtual MBB_list getPossibleLoops(MachineBasicBlock &MBB) const;
-    virtual void insertSingleHWLoop(MachineBasicBlock &MBB);
+    virtual void insertSingleHWLoop(MachineBasicBlock &MBB, MachineOperand &MO, bool needsIncrement);
+    virtual void removeIndexVar(MachineBasicBlock &MBB, unsigned regNumber);
 
   public:
 
@@ -70,8 +88,8 @@ namespace {
 
 }
 
-static bool machineBasicBlockInSet(MachineBasicBlock* const &MBB, HWLoopPass::MBB_list &mbb_set) {
-  HWLoopPass::MBB_list::iterator mbb_iterator;
+bool HWLoopPass::machineBasicBlockInSet(MachineBasicBlock* const &MBB, MBB_list &mbb_set) {
+  MBB_list::iterator mbb_iterator;
   for (mbb_iterator = mbb_set.begin(); mbb_iterator != mbb_set.end(); ++mbb_iterator) {
     if ((*mbb_iterator)->getNumber() == MBB->getNumber()) {
       return true;
@@ -87,11 +105,10 @@ HWLoopPass::MBB_list HWLoopPass::getPossibleLoops(MachineBasicBlock &MBB) const 
   MachineBasicBlock::succ_iterator s_iter;
   MachineBasicBlock::succ_iterator s_end_iter = MBB.succ_end();
   PredecessorList all_predecessors;
-  bool endLoop;
+  bool foundLoop;
 
   // return empty vector if BB has no successor
   if (MBB.succ_empty()) {
-//    std::cerr << "Branch BB#"<< MBB.getNumber() << " has no successors." << std::endl;
     return possible_loops;
   }
 
@@ -100,7 +117,6 @@ HWLoopPass::MBB_list HWLoopPass::getPossibleLoops(MachineBasicBlock &MBB) const 
 
   // init successor set
   for (s_iter = MBB.succ_begin(); s_iter != s_end_iter; ++s_iter) {
-//    std::cerr << "Adding BB#"<< (*s_iter)->getNumber() << " to successor list..." << std::endl;
     all_successors.push_back(*s_iter);
     all_predecessors.insertSuccessor(*s_iter, &MBB);
     if (((*s_iter)->getNumber() == MBB.getNumber()) && (!machineBasicBlockInSet(&MBB, possible_loops))) {
@@ -110,30 +126,26 @@ HWLoopPass::MBB_list HWLoopPass::getPossibleLoops(MachineBasicBlock &MBB) const 
     }
   }
 
-//  std::cerr << "Done with initialization!" << std::endl;
-
   // add all successors to successor set
   for (MBB_list::iterator suc_it = all_successors.begin();
       suc_it != all_successors.end();
       ++suc_it) {
 
-    endLoop = false;
+    foundLoop = false;
 
     s_end_iter = (*suc_it)->succ_end();
     for (s_iter = (*suc_it)->succ_begin(); s_iter != s_end_iter; ++s_iter) {
 
       // in any case, add predecessor to set
       all_predecessors.insertSuccessor(*s_iter, const_cast<const MachineBasicBlock*&>(*suc_it));
-//      std::cerr << "Set BB#" << (*suc_it)->getNumber() << " to predecessor of BB#" << (*s_iter)->getNumber() << std::endl;
-      // if successor of successor set is current BB, we have found a loop
+      // if successor of node in successor set is current BB, we have found a loop
       if ((*s_iter)->getNumber() == MBB.getNumber()) {
         possible_loops = all_predecessors.getPredecessors(const_cast<const MachineBasicBlock*&>(*suc_it));
-        endLoop = true;
+        foundLoop = true;
         break;
       } else {
-        // otherwise we have to add it to the successor
+        // otherwise we have to add it to the successor set
         if (!machineBasicBlockInSet(*s_iter, all_successors)) {
-//          std::cerr << "Adding BB#"<< (*s_iter)->getNumber() << " to successor list..." << std::endl;
           all_successors.push_back(*s_iter);
         }
       }
@@ -141,48 +153,33 @@ HWLoopPass::MBB_list HWLoopPass::getPossibleLoops(MachineBasicBlock &MBB) const 
     }
 
     // we have found a loop, so exit current for loop
-    if (endLoop) {
+    if (foundLoop) {
       break;
     }
 
   }
 
-//  std::cerr << "Done with successor analysis!" << std::endl;
-
   return possible_loops;
 
 }
 
-/*
-static void printPossibleLoops(HWLoopPass::MBB_list &mbb_set) {
-  HWLoopPass::MBB_list::iterator mbb_iter = mbb_set.begin();
-  HWLoopPass::MBB_list::iterator mbb_end_iter = mbb_set.end();
-  if (mbb_set.size() != 0) {
-    std::cerr << "Found Loops in set: " << std::endl << "\t";
-    while (mbb_iter != mbb_end_iter) {
-      std::cerr << "BB#" << (*mbb_iter)->getNumber() << " -> ";
-      ++mbb_iter;
-    }
-    std::cerr << "BB#" << (*(mbb_set.begin()))->getNumber() << std::endl;
-  }
-}
-*/
 
-static void updatePredecessors(MachineBasicBlock* newMBB, MachineBasicBlock* MBB) {
+void HWLoopPass::updatePredecessors(MachineBasicBlock* newMBB, MachineBasicBlock* MBB) {
 
   std::vector<MachineBasicBlock*> predecessors;
-  MachineBasicBlock::pred_iterator pred_iter = MBB->pred_begin();
-  while (pred_iter != MBB->pred_end()) {
+  MachineBasicBlock::pred_iterator pred_iter;
+  for (pred_iter = MBB->pred_begin();
+       pred_iter != MBB->pred_end();
+       ++pred_iter) {
     // add all predecessors except own basic block to set
     if (*pred_iter != MBB) {
       predecessors.push_back(*pred_iter);
     }
-    ++pred_iter;
   }
 
-  pred_iter = predecessors.begin();
-
-  while (pred_iter != predecessors.end()) {
+  for (pred_iter = predecessors.begin();
+       pred_iter != predecessors.end();
+       ++pred_iter) {
     (*pred_iter)->removeSuccessor(MBB);
     (*pred_iter)->addSuccessor(newMBB);
     // update branch targets to old basic block
@@ -195,48 +192,315 @@ static void updatePredecessors(MachineBasicBlock* newMBB, MachineBasicBlock* MBB
         }
       }
     }
-    ++pred_iter;
   }
-
 
 }
 
-void HWLoopPass::insertSingleHWLoop(MachineBasicBlock &MBB) {
+void HWLoopPass::insertSingleHWLoop(MachineBasicBlock &MBB, MachineOperand &MO, bool needsIncrement) {
 
+  // get current function
   MachineFunction *F = MBB.getParent();
   const BasicBlock *LLVM_BB = MBB.getBasicBlock();
 
+  // create new machine basic block in current function
   MachineBasicBlock* newMBB = F->CreateMachineBasicBlock(LLVM_BB);
-
   MachineFunction::iterator func_it = F->begin();
+  MachineInstrBuilder mi;
+  DebugLoc dbg_loc = newMBB->begin()->getDebugLoc();
 
+  // search current basic block
   while ((*func_it).getNumber() != MBB.getNumber()) {
     ++func_it;
   }
   ++func_it;
 
+  // insert new basic block in current position
   F->insert(func_it, newMBB);
-
   newMBB->moveBefore(&MBB);
 
-  MachineBasicBlock::iterator mbb_iter = newMBB->begin();
-  MachineInstrBuilder mi =
-      BuildMI(*newMBB, mbb_iter, newMBB->findDebugLoc(mbb_iter), TM.getInstrInfo()->get(CBG::HWLOOP));
+  // add all operands to hwloop instruction:
+  mi = BuildMI(*newMBB, newMBB->end(), dbg_loc, TM.getInstrInfo()->get(CBG::HWLOOPinit));
+  mi.addReg(CBG::HWLOOP1, RegState::Define).addMBB(&MBB);
+  mi = BuildMI(*newMBB, newMBB->end(), dbg_loc, TM.getInstrInfo()->get(CBG::HWLOOPinit));
+  mi.addReg(CBG::HWLOOP2, RegState::Define).addMBB(MBB.getNextNode());
+  //
+  if (needsIncrement) {
+    mi = BuildMI(*newMBB, newMBB->end(), dbg_loc, TM.getInstrInfo()->get(CBG::ADDri));
+    mi.addReg(MO.getReg(), RegState::Define).addReg(MO.getReg(), RegState::Kill).addImm(1);
+  }
+  mi = BuildMI(*newMBB, newMBB->end(), dbg_loc, TM.getInstrInfo()->get(CBG::HWLOOPinit));
+  mi.addReg(CBG::HWLOOP3, RegState::Define).addOperand(MO);
 
-  mi.addMBB(&MBB).addMBB(MBB.getNextNode()).addImm(20);
+  // insert hardware loop instruction at end of new block
+  mi = BuildMI(*newMBB, newMBB->end(), dbg_loc, TM.getInstrInfo()->get(CBG::HWLOOP));
 
-  /*mi = BuildMI(*newMBB, mbb_iter, newMBB->findDebugLoc(mbb_iter), TM.getInstrInfo()->get(CBG::BA));
-  mi.addMBB(newMBB);*/
-
-  /*for (func_it = F->begin(); func_it != F->end(); ++func_it) {
-    (*func_it).ReplaceUsesOfBlockWith(&MBB, newMBB);
-  }*/
-
+  // update all predecessors of old block
   updatePredecessors(newMBB, &MBB);
   newMBB->addSuccessor(&MBB);
-//  MBB.getNextNode()->setHasAddressTaken();
 
-//  MBB.getNextNode()->setHasAddressTaken();
+}
+
+
+bool HWLoopPass::isIncrement(const MachineInstr &instr) {
+
+  int opCode = instr.getOpcode();
+  int incrementValue;
+  bool isIncrement = false;
+
+  // we only allow ADDri and SUBri to be valid
+  // incremental instructions
+  if (opCode == CBG::ADDri) {
+    // if we have an ADDri instruction, the increment
+    // value has to be +1
+    incrementValue = instr.getOperand(2).getImm();
+    if (incrementValue == 1) {
+      isIncrement = true;
+    }
+  } else if (opCode == CBG::SUBri) {
+    // if we have a SUBri instruction, the increment
+    // value has to be -1
+    incrementValue = instr.getOperand(2).getImm();
+    if (incrementValue == -1) {
+     isIncrement = true;
+    }
+  }
+  // else => we have no increment instruction
+
+  return isIncrement;
+
+}
+
+bool HWLoopPass::isDecrement(const MachineInstr &instr) {
+
+  int opCode = instr.getOpcode();
+  int decrementValue;
+  bool isDecrement = false;
+
+  // we only allow ADDri and SUBri to be valid
+  // incremental instructions
+  if (opCode == CBG::ADDri) {
+    // if we have an ADDri instruction, the decrement
+    // value has to be -1
+    decrementValue = instr.getOperand(2).getImm();
+    if (decrementValue == -1) {
+      isDecrement = true;
+    }
+  } else if (opCode == CBG::SUBri) {
+    // if we have a SUBri instruction, the decrement
+    // value has to be 1
+    decrementValue = instr.getOperand(2).getImm();
+    if (decrementValue == 1) {
+     isDecrement = true;
+    }
+  }
+  // else => we have no increment instruction
+
+  return isDecrement;
+
+}
+
+bool HWLoopPass::isNoDestination(unsigned regNumber,
+                                 MachineBasicBlock &MBB,
+                                 MachineBasicBlock::reverse_iterator &mbb_iter) {
+  bool isNoDestination = true;
+
+  // check the whole basic block whether the given register
+  // is the destination of any instruction
+  for (; mbb_iter != MBB.rend(); ++mbb_iter) {
+    // only check if the destination is a valid register
+    if (mbb_iter->getOperand(0).isReg()) {
+      // if the destination register of current instruction
+      // is equal to given regNumber, we have to stop
+      if (mbb_iter->getOperand(0).getReg() == regNumber) {
+        isNoDestination = false;
+        break;
+      }
+    }
+  }
+
+  return isNoDestination;
+
+}
+
+HWLoopPass::LoopBounds HWLoopPass::findLoopBound(MachineBasicBlock &MBB) {
+
+  MachineBasicBlock::reverse_iterator mbb_iter = MBB.rbegin();
+  MachineBasicBlock::reverse_iterator mbb_tmp_iter;
+  MachineBasicBlock::reverse_iterator mbb_tmp_iter2;
+  MachineOperand* possibleLoopBound;
+  MachineOperand* possibleIndexVar;
+  unsigned branchCond = 0;
+  MachineOperand LoopBound = MachineOperand::CreateImm(0);
+  unsigned IndexVar = 0;
+  LoopBounds returnValue = {false, false, LoopBound, IndexVar};
+  unsigned OpCode;
+
+  // (1) last instruction has to be a conditional branch with target to
+  // current basic block
+  if ((mbb_iter->getOpcode() == CBG::BCOND) &&
+      (mbb_iter->getOperand(0).getMBB() == &MBB)) {
+    branchCond = mbb_iter->getOperand(1).getImm();
+
+    do {
+      ++mbb_iter;
+      OpCode = mbb_iter->getOpcode();
+      if (OpCode == CBG::SUBCCri || OpCode == CBG::SUBCCrr || OpCode == CBG::ADDCCri || OpCode == CBG::ADDCCrr) {
+        break;
+      }
+    } while (mbb_iter != MBB.rend());
+
+    std::cerr << "Last instruction of BB#" << MBB.getNumber() << " was conditional branch." << std::endl;
+//    std::cerr << "Opcode of second last instruction: " << mbb_iter->getOpcode() << std::endl;
+
+    // (2) second last instruction only can be a SUBCCrx
+    if ((mbb_iter != MBB.rend()) &&
+       ((mbb_iter->getOpcode() == CBG::SUBCCri) || (mbb_iter->getOpcode() == CBG::SUBCCrr))) {
+
+      std::cerr << "Second last instruction was SUBCCrx." << std::endl;
+
+      // result of compare operation will be ignored
+      if (mbb_iter->getOperand(0).isDead()) {
+
+        std::cerr << "Result of compare operation will not be used any more." << std::endl;
+
+        possibleIndexVar = &(mbb_iter->getOperand(1));
+        possibleLoopBound = &(mbb_iter->getOperand(2));
+
+        do {
+          ++mbb_iter;
+          OpCode = mbb_iter->getOpcode();
+          if (OpCode == CBG::SUBri || OpCode == CBG::SUBrr || OpCode == CBG::ADDri || OpCode == CBG::ADDrr) {
+            break;
+          }
+        } while (mbb_iter != MBB.rend());
+
+        if (mbb_iter != MBB.rend()) {
+
+          // (3) src1 register may only be the destination of a predecessing increment or decrement
+          // (3)(a) if idx is decremented, we only allow immediates to be loop bounds
+          if ( isDecrement(*mbb_iter) &&
+               possibleLoopBound->isImm() &&
+              (possibleLoopBound->getImm() <= 0)) {
+            mbb_tmp_iter = mbb_iter;
+            ++mbb_tmp_iter;
+
+            if (isNoDestination(possibleIndexVar->getReg(), MBB, mbb_tmp_iter)) {
+              // if immediate is less that 0, we simply have to change sign
+              if (possibleLoopBound->getImm() < 0) {
+                std::cerr << "Found constant loop bound " << (-1 * possibleLoopBound->getImm()) << std::endl;
+                returnValue.LoopBound.setImm(-1 * possibleLoopBound->getImm());
+                returnValue.IndexVar = possibleIndexVar->getReg();
+              } else {
+                // if immediate is zero, index variable contains loop bound
+                std::cerr << "Found loop bound in register " << possibleIndexVar->getReg() << std::endl;
+                returnValue.LoopBound.ChangeToRegister(possibleIndexVar->getReg(), false);
+                returnValue.IndexVar = possibleIndexVar->getReg();
+                if (branchCond == CBGCC::ICC_LE) {
+                  returnValue.needsIncrement = true;
+                }
+              }
+              returnValue.isValidLoop = true;
+            }
+          }
+          // (3)(b) if idx is incremented and compared with constant
+          else if( isIncrement(*mbb_iter) &&
+                   possibleLoopBound->isImm() &&
+                  (possibleLoopBound->getImm() > 0)) {
+            mbb_tmp_iter = mbb_iter;
+            ++mbb_tmp_iter;
+
+            if (isNoDestination(possibleIndexVar->getReg(), MBB, mbb_tmp_iter)) {
+              std::cerr << "Found constant loop bound " << possibleLoopBound->getImm() << std::endl;
+              returnValue.LoopBound.setImm(possibleLoopBound->getImm());
+              returnValue.IndexVar = possibleIndexVar->getReg();
+              returnValue.isValidLoop = true;
+            }
+
+          }
+
+          // (3)(c) if idx is incremented and compared with a constant register
+          else if( isIncrement(*mbb_iter) &&
+                   possibleLoopBound->isReg()) {
+
+            mbb_tmp_iter = mbb_iter;
+            ++mbb_tmp_iter;
+            mbb_tmp_iter2 = mbb_tmp_iter;
+
+            // neither index variable, nor loop bound register may be used as
+            // destination register
+
+            if (isNoDestination(possibleIndexVar->getReg(), MBB, mbb_tmp_iter) &&
+                isNoDestination(possibleLoopBound->getReg(), MBB, mbb_tmp_iter2)) {
+              std::cerr << "Found register loop bound in register " << possibleLoopBound->getReg() << std::endl;
+              returnValue.LoopBound.ChangeToRegister(possibleLoopBound->getReg(), false);
+              returnValue.IndexVar = possibleIndexVar->getReg();
+              returnValue.isValidLoop = true;
+              if (branchCond == CBGCC::ICC_LE) {
+                returnValue.needsIncrement = true;
+              }
+            }
+
+          }
+
+
+        }
+
+      }
+
+    }
+
+  }
+
+  return returnValue;
+
+}
+
+void HWLoopPass::removeIndexVar(MachineBasicBlock &MBB, unsigned regNumber) {
+
+  MachineBasicBlock::reverse_iterator mbb_iter;
+  bool isUsed = false;
+
+  // remove last two instructions (conditional branch and compare)
+  MBB.rbegin()->eraseFromParent();
+
+  mbb_iter = MBB.rbegin();
+  while (mbb_iter != MBB.rend()) {
+    if (mbb_iter->getOpcode() == CBG::SUBCCri || mbb_iter->getOpcode() == CBG::SUBCCrr) {
+      mbb_iter->eraseFromParent();
+      break;
+    }
+    ++mbb_iter;
+  }
+
+
+  // check, whether loop index is used as input for any other value
+  for (mbb_iter = MBB.rbegin(); mbb_iter != MBB.rend(); ++mbb_iter) {
+    for (unsigned numOps = 1; numOps < mbb_iter->getNumOperands(); ++numOps) {
+      if ( mbb_iter->getOperand(numOps).isReg() &&
+          (mbb_iter->getOperand(numOps).getReg() == regNumber)) {
+        if (!isDecrement(*mbb_iter) && isIncrement(*mbb_iter)) {
+          isUsed = true;
+          break;
+        }
+      }
+    }
+    if (isUsed) {
+      break;
+    }
+  }
+
+  // we can remove last increment/decrement instruction, if index var is not used
+  if (!isUsed) {
+    for (mbb_iter = MBB.rbegin(); mbb_iter != MBB.rend(); ++mbb_iter) {
+      if ( mbb_iter->getOperand(0).isReg() &&
+          (mbb_iter->getOperand(0).getReg() == regNumber)) {
+        if (isDecrement(*mbb_iter) || isIncrement(*mbb_iter)) {
+          mbb_iter->eraseFromParent();
+          break;
+        }
+      }
+    }
+  }
 
 }
 
@@ -245,19 +509,21 @@ bool HWLoopPass::runOnMachineFunction(MachineFunction &F) {
   MBB_list possible_loops;
   for (MachineFunction::iterator FI = F.begin(), FE = F.end();
       FI != FE; ++FI) {
-//    std::cerr << "Analyzing BB#" << (*FI).getNumber() << std::endl;
     possible_loops = getPossibleLoops(*FI);
-//    std::cerr << "Printing out loop..." << std::endl;
-//    printPossibleLoops(possible_loops);
     if (possible_loops.size() == 1) {
-      insertSingleHWLoop(*FI);
+      Changed |= runOnMachineBasicBlock(*FI);
     }
-    // Changed |= runOnMachineBasicBlock(*FI);
   }
   return Changed;
 }
 
 bool HWLoopPass::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
+  LoopBounds loopOperand = findLoopBound(MBB);
+  if (loopOperand.isValidLoop) {
+    insertSingleHWLoop(MBB, loopOperand.LoopBound, loopOperand.needsIncrement);
+    removeIndexVar(MBB, loopOperand.IndexVar);
+    return true;
+  }
   return false;
 }
 

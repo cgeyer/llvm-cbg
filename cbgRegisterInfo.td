@@ -48,6 +48,11 @@ def FCC : cbgCtrlReg<"FCC">;
 // Y register
 def Y : cbgCtrlReg<"Y">;
 
+// HWloop registers
+def HWLOOP1 : cbgCtrlReg<"LOOPBEGIN">;
+def HWLOOP2 : cbgCtrlReg<"LOOPEND">;
+def HWLOOP3 : cbgCtrlReg<"LOOPBOUND">;
+
 // Integer registers
 def G0 : Ri< 0, "G0">, DwarfRegNum<[0]>;
 def G1 : Ri< 1, "G1">, DwarfRegNum<[1]>;
@@ -173,3 +178,5 @@ def FPRegs : RegisterClass<"CBG", [f32], 32, [F0, F1, F2, F3, F4, F5, F6, F7, F8
 
 def DFPRegs : RegisterClass<"CBG", [f64], 64, [D0, D1, D2, D3, D4, D5, D6, D7,
   D8, D9, D10, D11, D12, D13, D14, D15]>;
+
+def HWLOOPRegs : RegisterClass<"CBG", [i32], 32, [HWLOOP1, HWLOOP2, HWLOOP3]>;

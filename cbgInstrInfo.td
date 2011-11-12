@@ -741,10 +741,14 @@ let Predicates = [HasMovCC], Uses = [ICC], Constraints = "$src2 = $dst" in {
 }
 
 // hardware loop instruction
-let Predicates = [HasHWLoop], isBranch = 1, isTerminator = 1 in {
-  def HWLOOP 
-    : Pseudo<(outs), (ins brtarget:$src1, brtarget:$src2, i32imm:$bound),
-             "hwloop $src1, $src2, $bound",
+let Predicates = [HasHWLoop] in {
+  let isBranch = 1, isTerminator = 1 in def HWLOOP 
+    : Pseudo<(outs), (ins),
+             "hwloop start",
+             []>;
+  def HWLOOPinit
+    : Pseudo<(outs HWLOOPRegs:$dst), (ins brtarget:$src),
+             "or %g0, $src, $dst",
              []>;
 }
 
