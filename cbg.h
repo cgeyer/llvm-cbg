@@ -31,6 +31,11 @@ namespace llvm {
   // Function pass for finding loops which can be transformed
   // to hardware loops
   FunctionPass *createcbgHWLoopPass(TargetMachine &TM, unsigned loopDepth);
+  // Function pass for inserting predicated blocks instead of branches
+  FunctionPass *createcbgPredBlockCCPass(TargetMachine &TM);
+  FunctionPass *createcbgPredBlockRegPass(TargetMachine &TM);
+  FunctionPass *createcbgPredInstrCCPass(TargetMachine &TM);
+  FunctionPass *createcbgPredInstrRegPass(TargetMachine &TM);
 
   extern Target ThecbgTarget;
 

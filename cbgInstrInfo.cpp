@@ -21,6 +21,9 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "cbgGenInstrInfo.inc"
 #include "cbgMachineFunctionInfo.h"
+
+#include <iostream>
+
 using namespace llvm;
 
 cbgInstrInfo::cbgInstrInfo(cbgSubtarget &ST)
@@ -109,8 +112,6 @@ CBGCC::CondCodes CBG::getOppositeBranchCondition(CBGCC::CondCodes CC)
   }
 }
 
-
-
 bool cbgInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
                                    MachineBasicBlock *&TBB,
                                    MachineBasicBlock *&FBB,
@@ -120,6 +121,7 @@ bool cbgInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
 
   MachineBasicBlock::iterator I = MBB.end();
   MachineBasicBlock::iterator UnCondBrIter = MBB.end();
+
   while (I != MBB.begin()) {
     --I;
 

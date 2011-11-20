@@ -39,6 +39,7 @@ namespace CBG {
 class cbgInstrInfo : public TargetInstrInfoImpl {
   const cbgRegisterInfo RI;
   const cbgSubtarget& Subtarget;
+
 public:
   explicit cbgInstrInfo(cbgSubtarget &ST);
 
@@ -95,6 +96,29 @@ public:
                                     const TargetRegisterInfo *TRI) const;
   
   unsigned getGlobalBaseReg(MachineFunction *MF) const;
+
+//  /// isPredicated - Returns true if the instruction is already predicated.
+//  ///
+//  virtual bool isPredicated(const MachineInstr *MI);
+//
+//  /// PredicateInstruction - Convert the instruction into a predicated
+//  /// instruction. It returns true if the operation was successful.
+//  virtual
+//  bool PredicateInstruction(MachineInstr *MI,
+//                        const SmallVectorImpl<MachineOperand> &Pred) const;
+//
+//  /// SubsumesPredicate - Returns true if the first specified predicate
+//  /// subsumes the second, e.g. GE subsumes GT.
+//  virtual
+//  bool SubsumesPredicate(const SmallVectorImpl<MachineOperand> &Pred1,
+//                         const SmallVectorImpl<MachineOperand> &Pred2) const;
+//
+//  /// DefinesPredicate - If the specified instruction defines any predicate
+//  /// or condition code register(s) used for predication, returns true as well
+//  /// as the definition predicate(s) by reference.
+//  virtual bool DefinesPredicate(MachineInstr *MI,
+//                                std::vector<MachineOperand> &Pred) const;
+
 };
 
 }

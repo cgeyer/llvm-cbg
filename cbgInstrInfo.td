@@ -43,8 +43,10 @@ def HasSelCC : Predicate<"Subtarget.hasSelCC()">;
 def HasMovCC : Predicate<"Subtarget.hasMovCC()">;
 def HasPredBlocksCC : Predicate<"Subtarget.hasPredBlocksCC()">;
 def HasPredBlocksReg : Predicate<"Subtarget.hasPredBlocksReg()">;
-def HasPredInstrCC : Predicate<"Subtarget.hasPredInstrCC()">;
-def HasPredInstrReg : Predicate<"Subtarget.hasPredInstrReg()">;
+def HasPredInstrCC : Predicate<"Subtarget.hasPredInstrCC() && !Subtarget.hasPredInstrReg()">;
+def HasPredInstrReg : Predicate<"Subtarget.hasPredInstrReg() && !Subtarget.hasPredInstrCC()">;
+//def HasNoPredInstr : Predicate<"!Subtarget.hasPredInstrCC() && !Subtarget.hasPredInstrReg()">;
+//def HasNoPredInstr : Predicate<"!Subtarget.hasPredInstrCC()">;
 def HasHWLoop : Predicate<"Subtarget.hasHWLoop()">;
 def HasHWLoops : Predicate<"Subtarget.hasHWLoops()">;
 def HasVLIWIfElse : Predicate<"Subtarget.hasVLIWIfElse()">;
@@ -93,6 +95,9 @@ def calltarget : Operand<i32>;
 // Operand for printing out a condition code.
 let PrintMethod = "printCCOperand" in
   def CCOp : Operand<i32>;
+
+let PrintMethod = "printPRegTFOperand" in
+  def TFOp : Operand<i32>;
 
 def SDTSPcmpfcc : 
 SDTypeProfile<0, 2, [SDTCisFP<0>, SDTCisSameAs<0, 1>]>;
@@ -144,6 +149,15 @@ def flushw        : SDNode<"SPISD::FLUSHW", SDTNone,
 def getPCX        : Operand<i32> {
   let PrintMethod = "printGetPCX";
 }
+
+
+// Lemberg predicate operand. Default to -1 = always. Second part is
+// condition register.
+def pred_cc : PredicateOperand<i32, (ops i32imm, PPRED),
+              (ops (i32 -1), (i32 zero_reg))> {
+  let PrintMethod = "printPredCCOperand";
+}
+
 
 //===----------------------------------------------------------------------===//
 // CBG Flag Conditions
@@ -703,29 +717,29 @@ let Defs = [FCC] in {
 }
 
 //===----------------------------------------------------------------------===//
-// Predicated CBG Instructions
+// Individual CBG Instructions Extensions
 //===----------------------------------------------------------------------===//
 
 // select instructions: support all possibilities
 let Predicates = [HasSelCC], Uses = [ICC] in {
   def SELcc_ii
     : Pseudo<(outs IntRegs:$dst), (ins  i32imm:$im1, i32imm:$im2, CCOp:$cc),
-             "sel$cc $im1, $im2, $dst",
+             "sel[$cc] $im1, $im2, $dst",
              [(set IntRegs:$dst, 
                           (SPselecticc simm11:$im1, simm11:$im2, imm:$cc))]>;
   def SELcc_ri
     : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$im2, CCOp:$cc),
-             "sel$cc $src1, $im2, $dst",
+             "sel[$cc] $src1, $im2, $dst",
              [(set IntRegs:$dst,
                           (SPselecticc IntRegs:$src1, simm11:$im2, imm:$cc))]>;
   def SELcc_ir
     : Pseudo<(outs IntRegs:$dst), (ins i32imm:$im1, IntRegs:$src2, CCOp:$cc),
-             "sel$cc $im1, $src2, $dst",
+             "sel[$cc] $im1, $src2, $dst",
              [(set IntRegs:$dst,
                           (SPselecticc simm11:$im1, IntRegs:$src2, imm:$cc))]>;
   def SELcc_rr
     : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, CCOp:$cc),
-             "sel$cc $src1, $src2, $dst",
+             "sel[$cc] $src1, $src2, $dst",
              [(set IntRegs:$dst,
                           (SPselecticc IntRegs:$src1, IntRegs:$src2, imm:$cc))]>;
 }
@@ -735,14 +749,15 @@ let Predicates = [HasSelCC], Uses = [ICC] in {
 let Predicates = [HasMovCC], Uses = [ICC], Constraints = "$src2 = $dst" in {
   def MOVcc_rr
     : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, CCOp:$cc),
-             "mov$cc $src1, $src2",
+             "mov[$cc] $src1, $src2",
              [(set IntRegs:$dst,
                           (SPselecticc IntRegs:$src1, IntRegs:$src2, imm:$cc))]>;
 }
 
 // hardware loop instruction
-let Predicates = [HasHWLoop] in {
-  let isBranch = 1, isTerminator = 1 in def HWLOOP 
+let Predicates = [HasHWLoop, HasHWLoops] in {
+  let isBranch = 1, isTerminator = 1 in 
+  def HWLOOP 
     : Pseudo<(outs), (ins),
              "hwloop start",
              []>;
@@ -752,90 +767,468 @@ let Predicates = [HasHWLoop] in {
              []>;
 }
 
-//===----------------------------------------------------------------------===//
-// V9 Instructions
-//===----------------------------------------------------------------------===//
+let Predicates = [HasPredBlocksCC], Uses = [ICC] in {
+  def PREDBLOCKCC_BEGIN
+    : Pseudo<(outs), (ins CCOp:$cc),
+             "predbegin[$cc]",
+             []>;
+  def PREDBLOCKCC_END
+    : Pseudo<(outs), (ins),
+             "predend",
+             []>;
+}
 
-// V9 Conditional Moves.
-//let Predicates = [HasV9], Constraints = "$T = $dst" in {
-//  // Move Integer Register on Condition (MOVcc) p. 194 of the V9 manual.
-//  // FIXME: Add instruction encodings for the JIT some day.
-//  let Uses = [ICC] in {
-//    def MOVICCrr
-//      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$T, IntRegs:$F, CCOp:$cc),
-//               "mov$cc %icc, $F, $dst",
-//               [(set IntRegs:$dst,
-//                           (SPselecticc IntRegs:$F, IntRegs:$T, imm:$cc))]>;
-//    def MOVICCri
-//      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$T, i32imm:$F, CCOp:$cc),
-//               "mov$cc %icc, $F, $dst",
-//               [(set IntRegs:$dst,
-//                            (SPselecticc simm11:$F, IntRegs:$T, imm:$cc))]>;
-//  }
-//
-//  let Uses = [FCC] in {
-//    def MOVFCCrr
-//      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$T, IntRegs:$F, CCOp:$cc),
-//               "mov$cc %fcc0, $F, $dst",
-//               [(set IntRegs:$dst,
-//                           (SPselectfcc IntRegs:$F, IntRegs:$T, imm:$cc))]>;
-//    def MOVFCCri
-//      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$T, i32imm:$F, CCOp:$cc),
-//               "mov$cc %fcc0, $F, $dst",
-//               [(set IntRegs:$dst,
-//                            (SPselectfcc simm11:$F, IntRegs:$T, imm:$cc))]>;
-//  }
-//
-//  let Uses = [ICC] in {
-//    def FMOVS_ICC
-//      : Pseudo<(outs FPRegs:$dst), (ins FPRegs:$T, FPRegs:$F, CCOp:$cc),
-//               "fmovs$cc %icc, $F, $dst",
-//               [(set FPRegs:$dst,
-//                           (SPselecticc FPRegs:$F, FPRegs:$T, imm:$cc))]>;
-//    def FMOVD_ICC
-//      : Pseudo<(outs DFPRegs:$dst), (ins DFPRegs:$T, DFPRegs:$F, CCOp:$cc),
-//               "fmovd$cc %icc, $F, $dst",
-//               [(set DFPRegs:$dst,
-//                           (SPselecticc DFPRegs:$F, DFPRegs:$T, imm:$cc))]>;
-//  }
-//
-//  let Uses = [FCC] in {
-//    def FMOVS_FCC
-//      : Pseudo<(outs FPRegs:$dst), (ins FPRegs:$T, FPRegs:$F, CCOp:$cc),
-//               "fmovs$cc %fcc0, $F, $dst",
-//               [(set FPRegs:$dst,
-//                           (SPselectfcc FPRegs:$F, FPRegs:$T, imm:$cc))]>;
-//    def FMOVD_FCC
-//      : Pseudo<(outs DFPRegs:$dst), (ins DFPRegs:$T, DFPRegs:$F, CCOp:$cc),
-//               "fmovd$cc %fcc0, $F, $dst",
-//               [(set DFPRegs:$dst,
-//                           (SPselectfcc DFPRegs:$F, DFPRegs:$T, imm:$cc))]>;
-//  }
-//
-//}
-//
-//// Floating-Point Move Instructions, p. 164 of the V9 manual.
-//let Predicates = [HasV9] in {
-//  def FMOVD : F3_3<2, 0b110100, 0b000000010,
-//                   (outs DFPRegs:$dst), (ins DFPRegs:$src),
-//                   "fmovd $src, $dst", []>;
-//  def FNEGD : F3_3<2, 0b110100, 0b000000110, 
-//                   (outs DFPRegs:$dst), (ins DFPRegs:$src),
-//                   "fnegd $src, $dst",
-//                   [(set DFPRegs:$dst, (fneg DFPRegs:$src))]>;
-//  def FABSD : F3_3<2, 0b110100, 0b000001010, 
-//                   (outs DFPRegs:$dst), (ins DFPRegs:$src),
-//                   "fabsd $src, $dst",
-//                   [(set DFPRegs:$dst, (fabs DFPRegs:$src))]>;
-//}
-//
-//// POPCrr - This does a ctpop of a 64-bit register.  As such, we have to clear
-//// the top 32-bits before using it.  To do this clearing, we use a SLLri X,0.
-//def POPCrr : F3_1<2, 0b101110, 
-//                  (outs IntRegs:$dst), (ins IntRegs:$src),
-//                  "popc $src, $dst", []>, Requires<[HasV9]>;
-//def : Pat<(ctpop IntRegs:$src),
-//          (POPCrr (SLLri IntRegs:$src, 0))>;
+let Predicates = [HasPredBlocksReg] in {
+  def PREDBLOCKREG_BEGIN_T
+    : Pseudo<(outs), (ins PREDRegs:$pred),
+             "predbegin {$pred}[t]",
+             []>;
+  def PREDBLOCKREG_BEGIN_F
+    : Pseudo<(outs), (ins PREDRegs:$pred),
+             "predbegin {$pred}[f]",
+             []>;
+  def PREDBLOCKREG_END
+    : Pseudo<(outs), (ins),
+             "predend",
+             []>;
+}
+
+let Uses = [ICC] in def PREDREGSETCC
+  : Pseudo<(outs PREDRegs:$pred), (ins CCOp:$cc),
+           "predset[$cc] $pred",
+           []>;
+def PREDREGSET
+  : Pseudo<(outs PREDRegs:$pred), (ins),
+           "predset $pred",
+           []>;
+def PREDREGCLEAR
+  : Pseudo<(outs PREDRegs:$pred), (ins),
+           "predclear $pred",
+           []>;
+
+
+// predicated instruction templates
+multiclass Pseudo_pcc<string OpcStr, SDNode OpNode> {
+  def rr  : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, pred_cc:$cc),
+                   !strconcat(OpcStr, "[$cc] $src1, $src2, $dst"),
+                   [(set IntRegs:$dst, (OpNode IntRegs:$src1, IntRegs:$src2))]>;
+  def ri  : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, pred_cc:$cc),
+                   !strconcat(OpcStr, "[$cc] $src1, $src2, $dst"),
+                   [(set IntRegs:$dst, (OpNode IntRegs:$src1, simm13:$src2))]>;
+}
+
+multiclass Pseudo_pcc_np<string OpcStr> {
+  def rr  : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, pred_cc:$cc),
+                   !strconcat(OpcStr, "[$cc] $src1, $src2, $dst"),
+                   []>;
+  def ri  : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, pred_cc:$cc),
+                   !strconcat(OpcStr, "[$cc] $src1, $src2, $dst"),
+                   []>;
+}
+
+
+
+// predicated instructions with condition codes
+let Predicates = [HasPredInstrCC], Uses = [ICC] in {
+
+  // Section A.3 - Synthetic Instructions, p. 85
+  // special cases of JMPL:
+  let isReturn = 1, isTerminator = 1, hasDelaySlot = 1, isBarrier = 1 in {
+    def RETL_pcc
+      : Pseudo<(outs), (ins i32imm:$val, pred_cc:$cc),
+               "jmp[$cc] %o7+$val", 
+               [(retflag simm13:$val)]>;
+
+    def RET_pcc
+      : Pseudo<(outs), (ins i32imm:$val, pred_cc:$cc),
+               "jmp[$cc] %i7+$val", 
+               []>;
+  }
+
+  // Section B.1 - Load Integer Instructions, p. 90
+  def LDSB_pccrr 
+    : Pseudo<(outs IntRegs:$dst), (ins MEMrr:$addr, pred_cc:$cc),
+             "ldsb[$cc] [$addr], $dst",
+             [(set IntRegs:$dst, (sextloadi8 ADDRrr:$addr))]>;
+  def LDSB_pccri 
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, pred_cc:$cc),
+             "ldsb[$cc] [$addr], $dst",
+             [(set IntRegs:$dst, (sextloadi8 ADDRri:$addr))]>;
+  def LDSH_pccrr
+    : Pseudo<(outs IntRegs:$dst), (ins MEMrr:$addr, pred_cc:$cc),
+             "ldsh[$cc] [$addr], $dst",
+             [(set IntRegs:$dst, (sextloadi16 ADDRrr:$addr))]>;
+  def LDSH_pccri 
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, pred_cc:$cc),
+             "ldsh[$cc] [$addr], $dst",
+             [(set IntRegs:$dst, (sextloadi16 ADDRri:$addr))]>;
+  def LDUB_pccrr 
+    : Pseudo<(outs IntRegs:$dst), (ins MEMrr:$addr, pred_cc:$cc),
+             "ldub[$cc] [$addr], $dst",
+             [(set IntRegs:$dst, (zextloadi8 ADDRrr:$addr))]>;
+  def LDUB_pccri
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, pred_cc:$cc),
+             "ldub[$cc] [$addr], $dst",
+             [(set IntRegs:$dst, (zextloadi8 ADDRri:$addr))]>;
+  def LDUH_pccrr
+    : Pseudo<(outs IntRegs:$dst), (ins MEMrr:$addr, pred_cc:$cc),
+             "lduh[$cc] [$addr], $dst",
+             [(set IntRegs:$dst, (zextloadi16 ADDRrr:$addr))]>;
+  def LDUH_pccri
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, pred_cc:$cc),
+             "lduh[$cc] [$addr], $dst",
+             [(set IntRegs:$dst, (zextloadi16 ADDRri:$addr))]>;
+  def LD_pccrr
+    : Pseudo<(outs IntRegs:$dst), (ins MEMrr:$addr, pred_cc:$cc),
+             "ld[$cc] [$addr], $dst",
+             [(set IntRegs:$dst, (load ADDRrr:$addr))]>;
+  def LD_pccri
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, pred_cc:$cc),
+             "ld[$cc] [$addr], $dst",
+             [(set IntRegs:$dst, (load ADDRri:$addr))]>;
+  
+  // Section B.4 - Store Integer Instructions, p. 95
+  def STB_pccrr
+    : Pseudo<(outs), (ins MEMrr:$addr, IntRegs:$src, pred_cc:$cc),
+             "stb[$cc] $src, [$addr]",
+             [(truncstorei8 IntRegs:$src, ADDRrr:$addr)]>;
+  def STB_pccri
+    : Pseudo<(outs), (ins MEMri:$addr, IntRegs:$src, pred_cc:$cc),
+             "stb[$cc] $src, [$addr]",
+             [(truncstorei8 IntRegs:$src, ADDRri:$addr)]>;
+  def STH_pccrr
+    : Pseudo<(outs), (ins MEMrr:$addr, IntRegs:$src, pred_cc:$cc),
+             "sth[$cc] $src, [$addr]",
+             [(truncstorei16 IntRegs:$src, ADDRrr:$addr)]>;
+  def STH_pccri
+    : Pseudo<(outs), (ins MEMri:$addr, IntRegs:$src, pred_cc:$cc),
+             "sth[$cc] $src, [$addr]",
+             [(truncstorei16 IntRegs:$src, ADDRri:$addr)]>;
+  def ST_pccrr
+    : Pseudo<(outs), (ins MEMrr:$addr, IntRegs:$src, pred_cc:$cc),
+             "st[$cc] $src, [$addr]",
+             [(store IntRegs:$src, ADDRrr:$addr)]>;
+  def ST_pccri 
+    : Pseudo<(outs), (ins MEMri:$addr, IntRegs:$src, pred_cc:$cc),
+             "st[$cc] $src, [$addr]",
+             [(store IntRegs:$src, ADDRri:$addr)]>;
+
+  // Section B.9 - SETHI Instruction, p. 104
+  def SETHIi_pcc
+    : Pseudo<(outs IntRegs:$dst), (ins i32imm:$src, pred_cc:$cc),
+             "sethi[$cc] $src, $dst",
+             [(set IntRegs:$dst, SETHIimm:$src)]>;
+
+  // Section B.11 - Logical Instructions, p. 106
+  defm AND_pcc : Pseudo_pcc<"and", and>;
+
+  def ANDN_pccrr
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, pred_cc:$cc),
+             "andn[$cc] $src1, $src2, $dst",
+             [(set IntRegs:$dst, (and IntRegs:$src1, (not IntRegs:$src2)))]>;
+
+  def ANDN_pccri
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, pred_cc:$cc),
+             "andn[$cc] $src1, $src2, $dst", 
+             []>;
+
+  defm OR_pcc : Pseudo_pcc<"or", or>;
+
+  def ORN_pccrr
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, pred_cc:$cc),
+             "orn[$cc] $src1, $src2, $dst",
+             [(set IntRegs:$dst, (or IntRegs:$src1, (not IntRegs:$src2)))]>;
+
+  def ORN_pccri
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, pred_cc:$cc),
+             "orn[$cc] $src1, $src2, $dst", 
+             []>;
+
+  defm XOR_pcc : Pseudo_pcc<"xor", xor>;
+
+  def XNOR_pccrr
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, pred_cc:$cc),
+             "xnor[$cc] $src1, $src2, $dst",
+             [(set IntRegs:$dst, (not (xor IntRegs:$src1, IntRegs:$src2)))]>;
+
+  def XNOR_pccri
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, pred_cc:$cc),
+             "xnor[$cc] $src1, $src2, $dst", 
+             []>;
+
+  // Section B.12 - Shift Instructions, p. 107
+  defm SLL_pcc : Pseudo_pcc<"sll", shl>;
+  defm SRL_pcc : Pseudo_pcc<"srl", srl>;
+  defm SRA_pcc : Pseudo_pcc<"sra", sra>;
+
+  // Section B.13 - Add Instructions, p. 108
+  defm ADD_pcc : Pseudo_pcc<"add", add>;
+  defm ADDX_pcc : Pseudo_pcc<"addx", adde>;
+
+  // "LEA" forms of add (patterns to make tblgen happy)
+  def LEA_ADD_pccri 
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, pred_cc:$cc),
+             "add[$cc] ${addr:arith}, $dst",
+             [(set IntRegs:$dst, ADDRri:$addr)]>;
+
+  // Section B.15 - Subtract Instructions, p. 110
+  defm SUB_pcc : Pseudo_pcc<"sub", sub>;
+  defm SUBX_pcc : Pseudo_pcc<"subx", sube>;
+
+  // Section B.18 - Multiply Instructions, p. 113
+  let Defs = [Y] in {
+    defm UMUL_pcc : Pseudo_pcc_np<"umul">;
+    defm SMUL_pcc : Pseudo_pcc<"smul", mul>;
+  }
+
+  // Section B.19 - Divide Instructions, p. 115
+  let Defs = [Y] in {
+    defm UDIV_pcc : Pseudo_pcc_np<"udiv">;
+    defm SDIV_pcc : Pseudo_pcc_np<"sdiv">;
+  }
+
+  // Section B.20 - SAVE and RESTORE, p. 117
+  def SAVE_pccrr 
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, pred_cc:$cc),
+             "save[$cc] $src1, $src2, $dst", 
+             []>;
+
+  def SAVE_pccri 
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, pred_cc:$cc),
+             "save[$cc] $src1, $src2, $dst", 
+             []>;
+
+  def RESTORE_pccrr 
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, pred_cc:$cc),
+             "restore[$cc] $src1, $src2, $dst", 
+             []>;
+
+  def RESTORE_pccri 
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, pred_cc:$cc),
+             "restore[$cc] $src1, $src2, $dst", 
+             []>;
+
+  // Section B.28 - Read State Register Instructions
+  let Uses = [Y] in 
+    def RDY_pcc 
+      : Pseudo<(outs IntRegs:$dst), (ins pred_cc:$cc),
+               "rd[$cc] %y, $dst", 
+               []>;
+}
+
+multiclass Pseudo_preg<string OpcStr> {
+  def rr  : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, PREDRegs:$pred, TFOp:$tf),
+                   !strconcat(OpcStr, "[$pred][$tf] $src1, $src2, $dst"),
+                   []>;
+  def ri  : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, PREDRegs:$pred, TFOp:$tf),
+                   !strconcat(OpcStr, "[$pred][$tf] $src1, $src2, $dst"),
+                   []>;
+}
+
+// predicated instructions with predicate register
+let Predicates = [HasPredInstrReg] in {
+
+  // Section A.3 - Synthetic Instructions, p. 85
+  // special cases of JMPL:
+  let isReturn = 1, isTerminator = 1, hasDelaySlot = 1, isBarrier = 1 in {
+    def RETL_preg
+      : Pseudo<(outs), (ins i32imm:$val, PREDRegs:$pred, TFOp:$tf),
+               "jmp[$pred][$tf] %o7+$val", 
+               []>;
+
+    def RET_preg
+      : Pseudo<(outs), (ins i32imm:$val, PREDRegs:$pred, TFOp:$tf),
+               "jmp[$pred][$tf] %i7+$val", 
+               []>;
+  }
+
+  // Section B.1 - Load Integer Instructions, p. 90
+  def LDSB_pregrr 
+    : Pseudo<(outs IntRegs:$dst), (ins MEMrr:$addr, PREDRegs:$pred, TFOp:$tf),
+             "ldsb[$pred][$tf] [$addr], $dst",
+             []>;
+  def LDSB_pregri 
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, PREDRegs:$pred, TFOp:$tf),
+             "ldsb[$pred][$tf] [$addr], $dst",
+             []>;
+  def LDSH_pregrr
+    : Pseudo<(outs IntRegs:$dst), (ins MEMrr:$addr, PREDRegs:$pred, TFOp:$tf),
+             "ldsh[$pred][$tf] [$addr], $dst",
+             []>;
+  def LDSH_pregri 
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, PREDRegs:$pred, TFOp:$tf),
+             "ldsh[$pred][$tf] [$addr], $dst",
+             []>;
+  def LDUB_pregrr 
+    : Pseudo<(outs IntRegs:$dst), (ins MEMrr:$addr, PREDRegs:$pred, TFOp:$tf),
+             "ldub[$pred][$tf] [$addr], $dst",
+             []>;
+  def LDUB_pregri
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, PREDRegs:$pred, TFOp:$tf),
+             "ldub[$pred][$tf] [$addr], $dst",
+             []>;
+  def LDUH_pregrr
+    : Pseudo<(outs IntRegs:$dst), (ins MEMrr:$addr, PREDRegs:$pred, TFOp:$tf),
+             "lduh[$pred][$tf] [$addr], $dst",
+             []>;
+  def LDUH_pregri
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, PREDRegs:$pred, TFOp:$tf),
+             "lduh[$pred][$tf] [$addr], $dst",
+             []>;
+  def LD_pregrr
+    : Pseudo<(outs IntRegs:$dst), (ins MEMrr:$addr, PREDRegs:$pred, TFOp:$tf),
+             "ld[$pred][$tf] [$addr], $dst",
+             []>;
+  def LD_pregri
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, PREDRegs:$pred, TFOp:$tf),
+             "ld[$pred][$tf] [$addr], $dst",
+             []>;
+  
+  // Section B.4 - Store Integer Instructions, p. 95
+  def STB_pregrr
+    : Pseudo<(outs), (ins MEMrr:$addr, IntRegs:$src, PREDRegs:$pred, TFOp:$tf),
+             "stb[$pred][$tf] $src, [$addr]",
+             []>;
+  def STB_pregri
+    : Pseudo<(outs), (ins MEMri:$addr, IntRegs:$src, PREDRegs:$pred, TFOp:$tf),
+             "stb[$pred][$tf] $src, [$addr]",
+             []>;
+  def STH_pregrr
+    : Pseudo<(outs), (ins MEMrr:$addr, IntRegs:$src, PREDRegs:$pred, TFOp:$tf),
+             "sth[$pred][$tf] $src, [$addr]",
+             []>;
+  def STH_pregri
+    : Pseudo<(outs), (ins MEMri:$addr, IntRegs:$src, PREDRegs:$pred, TFOp:$tf),
+             "sth[$pred][$tf] $src, [$addr]",
+             []>;
+  def ST_pregrr
+    : Pseudo<(outs), (ins MEMrr:$addr, IntRegs:$src, PREDRegs:$pred, TFOp:$tf),
+             "st[$pred][$tf] $src, [$addr]",
+             []>;
+  def ST_pregri 
+    : Pseudo<(outs), (ins MEMri:$addr, IntRegs:$src, PREDRegs:$pred, TFOp:$tf),
+             "st[$pred][$tf] $src, [$addr]",
+             []>;
+
+  // Section B.9 - SETHI Instruction, p. 104
+  def SETHIi_preg
+    : Pseudo<(outs IntRegs:$dst), (ins i32imm:$src, PREDRegs:$pred, TFOp:$tf),
+             "sethi[$pred][$tf] $src, $dst",
+             []>;
+
+  // Section B.11 - Logical Instructions, p. 106
+  defm AND_preg : Pseudo_preg<"and">;
+
+  def ANDN_pregrr
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, PREDRegs:$pred, TFOp:$tf),
+             "andn[$pred][$tf] $src1, $src2, $dst",
+             []>;
+
+  def ANDN_pregri
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, PREDRegs:$pred, TFOp:$tf),
+             "andn[$pred][$tf] $src1, $src2, $dst", 
+             []>;
+
+  defm OR_preg : Pseudo_preg<"or">;
+
+  def ORN_pregrr
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, PREDRegs:$pred, TFOp:$tf),
+             "orn[$pred][$tf] $src1, $src2, $dst",
+             []>;
+
+  def ORN_pregri
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, PREDRegs:$pred, TFOp:$tf),
+             "orn[$pred][$tf] $src1, $src2, $dst", 
+             []>;
+
+  defm XOR_preg : Pseudo_preg<"xor">;
+
+  def XNOR_pregrr
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, PREDRegs:$pred, TFOp:$tf),
+             "xnor[$pred][$tf] $src1, $src2, $dst",
+             []>;
+
+  def XNOR_pregri
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, PREDRegs:$pred, TFOp:$tf),
+             "xnor[$pred][$tf] $src1, $src2, $dst", 
+             []>;
+
+  // Section B.12 - Shift Instructions, p. 107
+  defm SLL_preg : Pseudo_preg<"sll">;
+  defm SRL_preg : Pseudo_preg<"srl">;
+  defm SRA_preg : Pseudo_preg<"sra">;
+
+  // Section B.13 - Add Instructions, p. 108
+  defm ADD_preg : Pseudo_preg<"add">;
+  defm ADDX_preg : Pseudo_preg<"addx">;
+
+  // "LEA" forms of add (patterns to make tblgen happy)
+  def LEA_ADD_pregri 
+    : Pseudo<(outs IntRegs:$dst), (ins MEMri:$addr, PREDRegs:$pred, TFOp:$tf),
+             "add[$pred][$tf] ${addr:arith}, $dst",
+             []>;
+
+  // Section B.15 - Subtract Instructions, p. 110
+  defm SUB_preg : Pseudo_preg<"sub">;
+  defm SUBX_preg : Pseudo_preg<"subx">;
+  let Defs = [ICC] in {
+    def SUBCC_pregrr 
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, ICCRegs:$icc, PREDRegs:$pred, TFOp:$tf),
+               "subcc[$pred][$tf] $src1, $src2, $dst",
+               []>;
+    def SUBCC_pregri 
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, ICCRegs:$icc, PREDRegs:$pred, TFOp:$tf),
+               "subcc[$pred][$tf] $src1, $src2, $dst",
+               []>;
+  }
+
+  // Section B.18 - Multiply Instructions, p. 113
+  let Defs = [Y] in {
+    defm UMUL_preg : Pseudo_preg<"umul">;
+    defm SMUL_preg : Pseudo_preg<"smul">;
+  }
+
+  // Section B.19 - Divide Instructions, p. 115
+  let Defs = [Y] in {
+    defm UDIV_preg : Pseudo_preg<"udiv">;
+    defm SDIV_preg : Pseudo_preg<"sdiv">;
+  }
+
+  // Section B.20 - SAVE and RESTORE, p. 117
+  def SAVE_pregrr 
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, PREDRegs:$pred, TFOp:$tf),
+             "save[$pred][$tf] $src1, $src2, $dst", 
+             []>;
+
+  def SAVE_pregri 
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, PREDRegs:$pred, TFOp:$tf),
+             "save[$pred][$tf] $src1, $src2, $dst", 
+             []>;
+
+  def RESTORE_pregrr 
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, PREDRegs:$pred, TFOp:$tf),
+             "restore[$pred][$tf] $src1, $src2, $dst", 
+             []>;
+
+  def RESTORE_pregri 
+    : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, PREDRegs:$pred, TFOp:$tf),
+             "restore[$pred][$tf] $src1, $src2, $dst", 
+             []>;
+
+  // Section B.28 - Read State Register Instructions
+  let Uses = [Y] in 
+    def RDY_preg 
+      : Pseudo<(outs IntRegs:$dst), (ins PREDRegs:$pred, TFOp:$tf),
+               "rd[$pred][$tf] %y, $dst", 
+               []>;
+
+  // allow predicated setting of predicate registers...
+  let Uses = [ICC] in def PREDREGSETCC_PREG
+    : Pseudo<(outs PREDRegs:$dstpred), (ins CCOp:$cc, ICCRegs:$icc, PREDRegs:$pred, TFOp:$tf),
+             "predset[$pred][$tf][$cc] $dstpred",
+             []>;
+
+}
 
 //===----------------------------------------------------------------------===//
 // Non-Instruction Patterns

@@ -45,6 +45,25 @@ class Rd<bits<5> num, string n, list<Register> subregs> : cbgReg<n> {
 def ICC : cbgCtrlReg<"ICC">;
 def FCC : cbgCtrlReg<"FCC">;
 
+// pseudo predicate register
+def PPRED : cbgCtrlReg<"PPRED">;
+def P0  : cbgCtrlReg<"P0">;
+def P1  : cbgCtrlReg<"P1">;
+def P2  : cbgCtrlReg<"P2">;
+def P3  : cbgCtrlReg<"P3">;
+def P4  : cbgCtrlReg<"P4">;
+def P5  : cbgCtrlReg<"P5">;
+def P6  : cbgCtrlReg<"P6">;
+def P7  : cbgCtrlReg<"P7">;
+def P8  : cbgCtrlReg<"P8">;
+def P9  : cbgCtrlReg<"P9">;
+def P10 : cbgCtrlReg<"P10">;
+def P11 : cbgCtrlReg<"P11">;
+def P12 : cbgCtrlReg<"P12">;
+def P13 : cbgCtrlReg<"P13">;
+def P14 : cbgCtrlReg<"P14">;
+def P15 : cbgCtrlReg<"P15">;
+
 // Y register
 def Y : cbgCtrlReg<"Y">;
 
@@ -180,3 +199,7 @@ def DFPRegs : RegisterClass<"CBG", [f64], 64, [D0, D1, D2, D3, D4, D5, D6, D7,
   D8, D9, D10, D11, D12, D13, D14, D15]>;
 
 def HWLOOPRegs : RegisterClass<"CBG", [i32], 32, [HWLOOP1, HWLOOP2, HWLOOP3]>;
+
+def PREDRegs : RegisterClass<"CBG", [i32], 16, [P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, P15]>;
+
+def ICCRegs : RegisterClass<"CBG", [i32], 32, [ICC]>;

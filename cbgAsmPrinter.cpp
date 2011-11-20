@@ -46,6 +46,9 @@ namespace {
                          const char *Modifier = 0);
     void printCCOperand(const MachineInstr *MI, int opNum, raw_ostream &OS);
 
+    void printPredCCOperand(const MachineInstr *MI, int opNum, raw_ostream &OS);
+    void printPRegTFOperand(const MachineInstr *MI, int opNum, raw_ostream &OS);
+
     virtual void EmitInstruction(const MachineInstr *MI) {
       SmallString<128> Str;
       raw_svector_ostream OS(Str);
@@ -177,6 +180,22 @@ void cbgAsmPrinter::printCCOperand(const MachineInstr *MI, int opNum,
                                      raw_ostream &O) {
   int CC = (int)MI->getOperand(opNum).getImm();
   O << CBGCondCodeToString((CBGCC::CondCodes)CC);
+}
+
+void cbgAsmPrinter::printPredCCOperand(const MachineInstr *MI, int opNum, raw_ostream &OS) {
+  int CC = (int)MI->getOperand(opNum).getImm();
+  if (CC > 0) {
+    OS << CBGCondCodeToString((CBGCC::CondCodes)CC);
+  }
+}
+
+void cbgAsmPrinter::printPRegTFOperand(const MachineInstr *MI, int opNum, raw_ostream &OS) {
+  int tfOperand = (int)MI->getOperand(opNum).getImm();
+  if (tfOperand == 0) {
+    OS << "f";
+  } else {
+    OS << "t";
+  }
 }
 
 /// PrintAsmOperand - Print out an operand for an inline asm expression.

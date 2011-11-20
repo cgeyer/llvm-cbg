@@ -31,22 +31,22 @@ def FeaturePredBlocksCC
                      "Enable predicated blocks with condition codes">;
 def FeaturePredBlocksReg
   : SubtargetFeature<"predblocksreg", "HasPredBlocksReg", "true",
-                     "Enable predicated blocks with predicate register">;
+                     "Enable predicated blocks with predicate register - currently not implemented">;
 def FeaturePredInstrCC
   : SubtargetFeature<"predinstrcc", "HasPredInstrCC", "true",
-                     "Enable fully predicated instructions with condition codes">;
+                     "Enable fully predicated instructions with condition codes - currently not implemented">;
 def FeaturePredInstrReg
   : SubtargetFeature<"predinstrreg", "HasPredInstrReg", "true",
-                     "Enable fully predicated instructions with predicate register">;
+                     "Enable fully predicated instructions with predicate register - currently not implemented">;
 def FeatureHWLoop
   : SubtargetFeature<"singleloop", "HasHWLoop", "true",
                      "Enable hardware support for single loop">;
 def FeatureHWLoops
   : SubtargetFeature<"nestedloops", "HasHWLoops", "true",
-                     "Enable hardware support for nested loops">;
+                     "Enable hardware support for nested loops - currently not implemented (same as singleloop)">;
 def FeatureVLIWIfElse
   : SubtargetFeature<"vliwbranches", "HasVLIWIfElse", "true",
-                     "Enable concurrent if and else execution">;
+                     "Enable concurrent if and else execution - currently not implemented">;
 
 //===----------------------------------------------------------------------===//
 // Register File, Calling Conv, Instruction Descriptions
