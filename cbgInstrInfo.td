@@ -781,11 +781,11 @@ let Predicates = [HasPredBlocksCC], Uses = [ICC] in {
 let Predicates = [HasPredBlocksReg] in {
   def PREDBLOCKREG_BEGIN_T
     : Pseudo<(outs), (ins PREDRegs:$pred),
-             "predbegin {$pred}[t]",
+             "predbegin[$pred][t]",
              []>;
   def PREDBLOCKREG_BEGIN_F
     : Pseudo<(outs), (ins PREDRegs:$pred),
-             "predbegin {$pred}[f]",
+             "predbegin[$pred][f]",
              []>;
   def PREDBLOCKREG_END
     : Pseudo<(outs), (ins),
