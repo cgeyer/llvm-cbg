@@ -92,7 +92,7 @@ namespace {
     virtual RegList getUsedPredRegisters(MachineBasicBlock &MBB);
     virtual RegList getUsedPredRegisters(MachineBasicBlock &TBB, MachineBasicBlock &FBB);
     virtual RegList cutPredRegLists(RegList &rList1, RegList &rList2);
-    virtual void removePredRegClears(MachineBasicBlock &MBB);
+    virtual RegList removePredRegClears(MachineBasicBlock &MBB);
   public:
     explicit PredicatedRegPass(TargetMachine &tm) : PredicationPass(tm) {}
     virtual bool runOnMachineFunction(MachineFunction &F) = 0;
@@ -440,36 +440,82 @@ unsigned PredicatedRegPass::getNextFreePredRegister(MachineBasicBlock &TBB, Mach
 }
 
 /**
- * @brief Removes all predclear instructions from the given MBB.
+ * @brief Removes all predclear instructions before any predicated
+ *        block begin instruction from the given MBB.
  * @param MBB The machine basic block to analyze.
+ * @return A List of all removed predicated registers.
  */
-void PredicatedRegPass::removePredRegClears(MachineBasicBlock &MBB) {
+PredicatedRegPass::RegList PredicatedRegPass::removePredRegClears(MachineBasicBlock &MBB) {
+
+  RegList rList;
+
   MachineBasicBlock::iterator mbb_iter = MBB.begin();
   while (mbb_iter != MBB.end()) {
     if (mbb_iter->getOpcode() == CBG::PREDREGCLEAR) {
+      rList.push_back(mbb_iter->getOperand(0).getReg());
       mbb_iter->eraseFromParent();
       mbb_iter = MBB.begin();
       continue;
     }
+    if (mbb_iter->getOpcode() == CBG::PREDBLOCKREG_BEGIN_T ||
+        mbb_iter->getOpcode() == CBG::PREDBLOCKREG_BEGIN_F) {
+      break;
+    }
     ++mbb_iter;
   }
+
+  return rList;
 
 }
 
 /**
- * @brief Removes all instructions terminating a predicated block
+ * @brief Removes all redundant instructions terminating a predicated block
  *        from the given MBB.
  * @param MBB The machine basic block to analyze.
  */
 void PredicatedBlocksRegPass::removePredEnds(MachineBasicBlock &MBB) {
-  MachineBasicBlock::reverse_iterator mbb_iter = MBB.rbegin();
-  while (mbb_iter != MBB.rend()) {
+  MachineBasicBlock::iterator mbb_iter;
+  MachineBasicBlock::iterator pred_end = MBB.end();
+
+  for (mbb_iter = MBB.begin(); mbb_iter != MBB.end(); ) {
+    // we have found a prendend instruction
     if (mbb_iter->getOpcode() == CBG::PREDBLOCKREG_END) {
-      mbb_iter->eraseFromParent();
-      return;
+      // if it is the first, save that we have found one
+      // and continue
+      if (pred_end == MBB.end()) {
+        pred_end = mbb_iter;
+        ++mbb_iter;
+        continue;
+      } else {
+        // we have found a second predend instruction,
+        // so we have to remove it
+        pred_end->eraseFromParent();
+        pred_end = MBB.end();
+        mbb_iter = MBB.begin();
+        continue;
+      }
+    } else if (mbb_iter->getOpcode() == CBG::PREDBLOCKREG_BEGIN_T ||
+               mbb_iter->getOpcode() == CBG::PREDBLOCKREG_BEGIN_F) {
+      // we have found the beginning of a predicated block, so
+      // we should remove any predecessing predend instructions
+      if (pred_end != MBB.end()) {
+        // we have found a predend instruction predecessing
+        // a predbegin instruction which means that we can
+        // remove it
+        pred_end->eraseFromParent();
+        pred_end = MBB.end();
+        mbb_iter = MBB.begin();
+        continue;
+      }
+
     }
+    // if pred_end has been defined and we did not have any
+    // predend or predbegin block, we have to clear the pred_end
+    // instruction
+    pred_end = MBB.end();
     ++mbb_iter;
   }
+
 
 }
 
@@ -720,10 +766,6 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
         --mbb_iter;
       }
 
-      // get a set of all used predication registers of
-      // TBB and FBB
-      pregList = getUsedPredRegisters(TBB, FBB);
-
       // allocate the next free predication register
       nextPReg = getNextFreePredRegister(TBB, FBB);
 
@@ -732,16 +774,13 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
       removeBranches(*predecessor);
 
       // remove any clear predication register from TBB and FBB
-      removePredRegClears(TBB);
-      removePredRegClears(FBB);
+      // and save the used registers in list
+      pregList = removePredRegClears(TBB);
+      pregList2 = removePredRegClears(FBB);
 
-      // remove any end predicted block instruction from TBB and FBB
-      removePredEnds(TBB);
-      removePredEnds(FBB);
-
-      // set the current predication register based on the condition code
-      BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGSETCC))
-        .addReg(nextPReg, RegState::Define).addImm(conditionCode);
+      // clear the current predicate register
+      BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGCLEAR))
+        .addReg(nextPReg, RegState::Define);
 
       // add clear instructions for all used predicate registers of TBB and FBB at end of predecessor
       for (preglist_iterator = pregList.begin(); preglist_iterator != pregList.end(); ++preglist_iterator) {
@@ -749,23 +788,20 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
           .addReg(*preglist_iterator, RegState::Define);
       }
 
+      // set the current predication register based on the condition code
+      BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGSETCC))
+        .addReg(nextPReg, RegState::Define).addImm(conditionCode);
+
       // add begin predicated block instruction at begin of TBB
       BuildMI(TBB, TBB.begin(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDBLOCKREG_BEGIN_T))
         .addReg(nextPReg);
 
-      // save all used predicated predication registers of TBB and FBB
-      pregList = getUsedPredRegisters(TBB);
-      pregList2 = getUsedPredRegisters(FBB);
-
-      // get a cut set of used predicate registers in TBB and FBB
-      pregList2 = cutPredRegLists(pregList, pregList2);
-
-      // if the list contains any entries, we have to insert a block end instruction
+      // if the list of used pred registers of FBB contains any entries, we have to insert a block end instruction
       if (pregList2.size() > 0) {
         BuildMI(TBB, TBB.end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDBLOCKREG_END));
       }
 
-      // add clear instructions for all used predicate registers of TBB and FBB at end of true basic block
+      // add clear instructions for all used predicate registers of FBB at end of true basic block
       for (preglist_iterator = pregList2.begin(); preglist_iterator != pregList2.end(); ++preglist_iterator) {
         BuildMI(TBB, TBB.end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGCLEAR))
           .addReg(*preglist_iterator, RegState::Define);
@@ -787,6 +823,9 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
       if (successor->pred_size() == 1) {
         mergeBlocks(*predecessor, *successor);
       }
+
+      // remove redundant predends from newly built MBB
+      removePredEnds(*predecessor);
 
       // save that we have changed the structure of the function
       Changed = true;
@@ -823,17 +862,22 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
         mbb_iter = TBB.end();
       }
 
-      // get a set of all used predication registers of TBB
-      pregList = getUsedPredRegisters(TBB);
-
       // allocate the next free predication register
       nextPReg = getNextFreePredRegister(TBB);
 
       // remove any clear predication register from TBB
-      removePredRegClears(TBB);
+      // and get a set of all used predication registers of TBB
+      pregList = removePredRegClears(TBB);
 
-      // remove any end predicted block instruction from TBB
-      removePredEnds(TBB);
+      // clear the current predicate register
+      BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGCLEAR))
+        .addReg(nextPReg, RegState::Define);
+
+      // add clear instructions for all used predicate registers of TBB at end of predecessor
+      for (preglist_iterator = pregList.begin(); preglist_iterator != pregList.end(); ++preglist_iterator) {
+        BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGCLEAR))
+          .addReg(*preglist_iterator, RegState::Define);
+      }
 
       // get the opposite condition code for TBB
       conditionCode = CBG::getOppositeBranchCondition(static_cast<CBGCC::CondCodes>(conditionCode));
@@ -841,12 +885,6 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
       // set the current predication register based on the condition code
       BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGSETCC))
         .addReg(nextPReg, RegState::Define).addImm(conditionCode);
-
-      // add clear instructions for all used predicate registers of TBB at end of predecessor
-      for (preglist_iterator = pregList.begin(); preglist_iterator != pregList.end(); ++preglist_iterator) {
-        BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGCLEAR))
-          .addReg(*preglist_iterator, RegState::Define);
-      }
 
       // add start predicated block instruction at begin of TBB
       BuildMI(TBB, TBB.begin(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDBLOCKREG_BEGIN_T))
@@ -863,6 +901,9 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
       if (predecessor->isLayoutSuccessor(&FBB) && FBB.pred_size() == 1) {
         mergeBlocks(*predecessor, FBB);
       }
+
+      // remove redundant end predicted block instruction from newly built MBB
+      removePredEnds(*predecessor);
 
       // save that we have changed the structure of the function
       Changed = true;
@@ -1600,9 +1641,6 @@ void PredicatedInstrRegPass::changeToPredicatedInstruction(MachineBasicBlock &Pr
 bool PredicatedInstrRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, MachineBasicBlock &FBB, branchType btype) {
 
   DebugLoc dbg_loc = TBB.begin()->getDebugLoc();
-  RegList pregList;
-  RegList pregList2;
-  RegList::iterator preglist_iterator;
   MachineBasicBlock* predecessor;
   MachineBasicBlock* successor;
   int conditionCode;
@@ -1633,10 +1671,6 @@ bool PredicatedInstrRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Machi
         removeBranches(FBB);
       }
 
-      // get a set of all used predication registers
-      // of TBB and FBB
-      pregList = getUsedPredRegisters(TBB, FBB);
-
       // allocate the next free predication register
       nextPReg = getNextFreePredRegister(TBB, FBB);
 
@@ -1644,32 +1678,13 @@ bool PredicatedInstrRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Machi
       removeBranches(TBB);
       removeBranches(*predecessor);
 
-      // remove any clear predication register from TBB and FBBs
-      removePredRegClears(TBB);
-      removePredRegClears(FBB);
+      // clear currently used predicate register
+      BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGCLEAR))
+        .addReg(nextPReg, RegState::Define);
 
       // set the current predication register based on the condition code
       BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGSETCC))
         .addReg(nextPReg, RegState::Define).addImm(conditionCode);
-
-      // add clear instructions for all used predicate registers of TBB at end of predecessor
-      for (preglist_iterator = pregList.begin(); preglist_iterator != pregList.end(); ++preglist_iterator) {
-        BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGCLEAR))
-          .addReg(*preglist_iterator, RegState::Define);
-      }
-
-      // save all used predicated predication registers of TBB and FBB
-      pregList = getUsedPredRegisters(TBB);
-      pregList2 = getUsedPredRegisters(FBB);
-
-      // get a cut set of used predicate registers in TBB and FBB
-      pregList2 = cutPredRegLists(pregList, pregList2);
-
-      // add clear instructions for all used predicate registers of TBB and FBB at end of true basic block
-      for (preglist_iterator = pregList2.begin(); preglist_iterator != pregList2.end(); ++preglist_iterator) {
-        BuildMI(TBB, TBB.end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGCLEAR))
-          .addReg(*preglist_iterator, RegState::Define);
-      }
 
       // merge predecessor with TBB
       changeToPredicatedInstruction(*predecessor, TBB, nextPReg, 1);
@@ -1711,27 +1726,19 @@ bool PredicatedInstrRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Machi
         removeBranches(TBB);
       }
 
-      // get a set of all used predication registers of TBB
-      pregList = getUsedPredRegisters(TBB);
-
       // allocate the next free predication register
       nextPReg = getNextFreePredRegister(TBB);
-
-      // remove any clear predication register from TBB
-      removePredRegClears(TBB);
 
       // get the opposite condition code for TBB
       conditionCode = CBG::getOppositeBranchCondition(static_cast<CBGCC::CondCodes>(conditionCode));
 
+      // clear currently used predicate register
+      BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGCLEAR))
+        .addReg(nextPReg, RegState::Define);
+
       // set the current predication register based on the condition code
       BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGSETCC))
         .addReg(nextPReg, RegState::Define).addImm(conditionCode);
-
-      // add clear instructions for all used predicate registers of TBB at end of predecessor
-      for (preglist_iterator = pregList.begin(); preglist_iterator != pregList.end(); ++preglist_iterator) {
-        BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGCLEAR))
-          .addReg(*preglist_iterator, RegState::Define);
-      }
 
       // merge predecessor with TBB
       changeToPredicatedInstruction(*predecessor, TBB, nextPReg, 1);

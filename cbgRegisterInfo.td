@@ -68,9 +68,9 @@ def P15 : cbgCtrlReg<"P15">;
 def Y : cbgCtrlReg<"Y">;
 
 // HWloop registers
-def HWLOOP1 : cbgCtrlReg<"LOOPBEGIN">;
-def HWLOOP2 : cbgCtrlReg<"LOOPEND">;
-def HWLOOP3 : cbgCtrlReg<"LOOPBOUND">;
+def HWLOOP1 : cbgCtrlReg<"LOOPS">;
+def HWLOOP2 : cbgCtrlReg<"LOOPE">;
+def HWLOOP3 : cbgCtrlReg<"LOOPB">;
 
 // Integer registers
 def G0 : Ri< 0, "G0">, DwarfRegNum<[0]>;
@@ -200,6 +200,6 @@ def DFPRegs : RegisterClass<"CBG", [f64], 64, [D0, D1, D2, D3, D4, D5, D6, D7,
 
 def HWLOOPRegs : RegisterClass<"CBG", [i32], 32, [HWLOOP1, HWLOOP2, HWLOOP3]>;
 
-def PREDRegs : RegisterClass<"CBG", [i32], 16, [P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, P15]>;
+def PREDRegs : RegisterClass<"CBG", [i32], 16, [P0, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, P15]>;
 
-def ICCRegs : RegisterClass<"CBG", [i32], 32, [ICC]>;
+def SpecialRegs : RegisterClass<"CBG", [i32], 32, [ICC, Y]>;

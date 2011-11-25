@@ -763,7 +763,7 @@ let Predicates = [HasHWLoop, HasHWLoops] in {
              []>;
   def HWLOOPinit
     : Pseudo<(outs HWLOOPRegs:$dst), (ins brtarget:$src),
-             "or %g0, $src, $dst",
+             "inithwloop $src, $dst",
              []>;
 }
 
@@ -976,17 +976,55 @@ let Predicates = [HasPredInstrCC], Uses = [ICC] in {
   defm SUBX_pcc : Pseudo_pcc<"subx", sube>;
 
   // Section B.18 - Multiply Instructions, p. 113
-  let Defs = [Y] in {
+  /*let Defs = [Y] in {
     defm UMUL_pcc : Pseudo_pcc_np<"umul">;
     defm SMUL_pcc : Pseudo_pcc<"smul", mul>;
+  }*/
+
+  let Defs = [Y] in {
+    def UMUL_pccrr
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, SpecialRegs:$Y, pred_cc:$cc),
+               "umul[$cc] $src1, $src2, $dst",
+               []>;
+    def UMUL_pccri
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, SpecialRegs:$Y, pred_cc:$cc),
+               "umul[$cc] $src1, $src2, $dst",
+               []>;
+    def SMUL_pccrr
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, SpecialRegs:$Y, pred_cc:$cc),
+               "smul[$cc] $src1, $src2, $dst",
+               []>;
+    def SMUL_pccri 
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, SpecialRegs:$Y, pred_cc:$cc),
+               "smul[$cc] $src1, $src2, $dst",
+               []>;
   }
+
 
   // Section B.19 - Divide Instructions, p. 115
-  let Defs = [Y] in {
+  /*let Defs = [Y] in {
     defm UDIV_pcc : Pseudo_pcc_np<"udiv">;
     defm SDIV_pcc : Pseudo_pcc_np<"sdiv">;
-  }
+  }*/
 
+  let Defs = [Y] in {
+    def UDIV_pccrr
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, SpecialRegs:$Y, pred_cc:$cc),
+               "udiv[$cc] $src1, $src2, $dst",
+               []>;
+    def UDIV_pccri
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, SpecialRegs:$Y, pred_cc:$cc),
+               "udiv[$cc] $src1, $src2, $dst",
+               []>;
+    def SDIV_pccrr
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, SpecialRegs:$Y, pred_cc:$cc),
+               "sdiv[$cc] $src1, $src2, $dst",
+               []>;
+    def SDIV_pccri 
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, SpecialRegs:$Y, pred_cc:$cc),
+               "sdiv[$cc] $src1, $src2, $dst",
+               []>;
+  }
   // Section B.20 - SAVE and RESTORE, p. 117
   def SAVE_pccrr 
     : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, pred_cc:$cc),
@@ -1025,6 +1063,14 @@ multiclass Pseudo_preg<string OpcStr> {
                    []>;
 }
 
+multiclass Pseudo_preg_mdiv<string OpcStr> {
+  def rr  : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, SpecialRegs:$Y, PREDRegs:$pred, TFOp:$tf),
+                   !strconcat(OpcStr, "[$pred][$tf] $src1, $src2, $dst"),
+                   []>;
+  def ri  : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, SpecialRegs:$Y, PREDRegs:$pred, TFOp:$tf),
+                   !strconcat(OpcStr, "[$pred][$tf] $src1, $src2, $dst"),
+                   []>;
+}
 // predicated instructions with predicate register
 let Predicates = [HasPredInstrReg] in {
 
@@ -1173,25 +1219,25 @@ let Predicates = [HasPredInstrReg] in {
   defm SUBX_preg : Pseudo_preg<"subx">;
   let Defs = [ICC] in {
     def SUBCC_pregrr 
-      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, ICCRegs:$icc, PREDRegs:$pred, TFOp:$tf),
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, IntRegs:$src2, SpecialRegs:$icc, PREDRegs:$pred, TFOp:$tf),
                "subcc[$pred][$tf] $src1, $src2, $dst",
                []>;
     def SUBCC_pregri 
-      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, ICCRegs:$icc, PREDRegs:$pred, TFOp:$tf),
+      : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$src2, SpecialRegs:$icc, PREDRegs:$pred, TFOp:$tf),
                "subcc[$pred][$tf] $src1, $src2, $dst",
                []>;
   }
 
   // Section B.18 - Multiply Instructions, p. 113
   let Defs = [Y] in {
-    defm UMUL_preg : Pseudo_preg<"umul">;
-    defm SMUL_preg : Pseudo_preg<"smul">;
+    defm UMUL_preg : Pseudo_preg_mdiv<"umul">;
+    defm SMUL_preg : Pseudo_preg_mdiv<"smul">;
   }
 
   // Section B.19 - Divide Instructions, p. 115
   let Defs = [Y] in {
-    defm UDIV_preg : Pseudo_preg<"udiv">;
-    defm SDIV_preg : Pseudo_preg<"sdiv">;
+    defm UDIV_preg : Pseudo_preg_mdiv<"udiv">;
+    defm SDIV_preg : Pseudo_preg_mdiv<"sdiv">;
   }
 
   // Section B.20 - SAVE and RESTORE, p. 117
@@ -1224,7 +1270,7 @@ let Predicates = [HasPredInstrReg] in {
 
   // allow predicated setting of predicate registers...
   let Uses = [ICC] in def PREDREGSETCC_PREG
-    : Pseudo<(outs PREDRegs:$dstpred), (ins CCOp:$cc, ICCRegs:$icc, PREDRegs:$pred, TFOp:$tf),
+    : Pseudo<(outs PREDRegs:$dstpred), (ins CCOp:$cc, SpecialRegs:$icc, PREDRegs:$pred, TFOp:$tf),
              "predset[$pred][$tf][$cc] $dstpred",
              []>;
 
