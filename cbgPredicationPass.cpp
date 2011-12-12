@@ -72,6 +72,7 @@ namespace {
    */
   class PredicatedBlocksCCPass : public PredicationPass {
   protected:
+    virtual bool definesICC(MachineBasicBlock &MBB);
     virtual bool insertPredicatedBlock(MachineBasicBlock &TBB, MachineBasicBlock &FBB, branchType btype);
   public:
     explicit PredicatedBlocksCCPass(TargetMachine &tm) : PredicationPass(tm) {}
@@ -92,6 +93,7 @@ namespace {
     virtual RegList getUsedPredRegisters(MachineBasicBlock &MBB);
     virtual RegList getUsedPredRegisters(MachineBasicBlock &TBB, MachineBasicBlock &FBB);
     virtual RegList cutPredRegLists(RegList &rList1, RegList &rList2);
+    virtual RegList unitePredRegLists(RegList &rList1, RegList &rList2);
     virtual RegList removePredRegClears(MachineBasicBlock &MBB);
   public:
     explicit PredicatedRegPass(TargetMachine &tm) : PredicationPass(tm) {}
@@ -103,6 +105,7 @@ namespace {
    */
   class PredicatedBlocksRegPass : public PredicatedRegPass {
   protected:
+    virtual void replacePredEnds(MachineBasicBlock &MBB, unsigned PReg, unsigned TF);
     virtual void removePredEnds(MachineBasicBlock &MBB);
     virtual bool insertPredicatedBlock(MachineBasicBlock &TBB, MachineBasicBlock &FBB, branchType btype);
   public:
@@ -385,6 +388,27 @@ PredicatedRegPass::RegList PredicatedRegPass::cutPredRegLists(RegList &rList1, R
 }
 
 /**
+ * @brief Gets a set of registers which unite registers of both given lists.
+ * @param rList1 First input set of registers.
+ * @param rList2 Second input set of registers.
+ * @return A set (i.e. a list) of registers representing a unite operation of rList1 and rList2.
+ */
+PredicatedRegPass::RegList PredicatedRegPass::unitePredRegLists(RegList &rList1, RegList &rList2) {
+  RegList rList = rList1;
+  RegList::iterator reglist_iter = rList2.begin();
+
+  while(reglist_iter != rList2.end()) {
+    if (!isPredRegInList(rList, *reglist_iter)) {
+      rList.push_back(*reglist_iter);
+    }
+    ++reglist_iter;
+  }
+
+  return rList;
+
+}
+
+/**
  * @brief Register allocator for predication registers based on the
  *        given machine basic block.
  * @param MBB The machine basic block which is the basis for the register
@@ -469,6 +493,42 @@ PredicatedRegPass::RegList PredicatedRegPass::removePredRegClears(MachineBasicBl
 }
 
 /**
+ * @brief Replaces all occurring predend instructions of the given basic block by
+ *        predbegin[preg][t/f].
+ * @param MBB The machine basic block which is the subject of change.
+ * @param PReg The predicate register which is source of the predbegin instruction.
+ * @param TF Sets the t/f flag of the predbegin instruction.
+ */
+void PredicatedBlocksRegPass::replacePredEnds(MachineBasicBlock &MBB, unsigned PReg, unsigned TF) {
+  MachineBasicBlock::iterator mbb_iter;
+  MachineBasicBlock::iterator pred_end;
+
+  DebugLoc dbg_loc = MBB.begin()->getDebugLoc();
+
+  for (mbb_iter = MBB.begin(); mbb_iter != MBB.end(); ) {
+    // replace a predend by predbegin[preg][tf] instruction
+    if (mbb_iter->getOpcode() == CBG::PREDBLOCKREG_END) {
+      pred_end = mbb_iter;
+      ++mbb_iter;
+      if (TF == 1) {
+        BuildMI(MBB, mbb_iter, dbg_loc, TM.getInstrInfo()->get(CBG::PREDBLOCKREG_BEGIN_T))
+            .addReg(PReg);
+      } else {
+        BuildMI(MBB, mbb_iter, dbg_loc, TM.getInstrInfo()->get(CBG::PREDBLOCKREG_BEGIN_F))
+            .addReg(PReg);
+      }
+      // remove predend instruction
+      pred_end->eraseFromParent();
+      // set mbb iter to begin of current MBB
+      mbb_iter = MBB.begin();
+      continue;
+    }
+    ++mbb_iter;
+  }
+
+}
+
+/**
  * @brief Removes all redundant instructions terminating a predicated block
  *        from the given MBB.
  * @param MBB The machine basic block to analyze.
@@ -478,36 +538,30 @@ void PredicatedBlocksRegPass::removePredEnds(MachineBasicBlock &MBB) {
   MachineBasicBlock::iterator pred_end = MBB.end();
 
   for (mbb_iter = MBB.begin(); mbb_iter != MBB.end(); ) {
-    // we have found a prendend instruction
-    if (mbb_iter->getOpcode() == CBG::PREDBLOCKREG_END) {
-      // if it is the first, save that we have found one
-      // and continue
-      if (pred_end == MBB.end()) {
+    // pred_end is not set
+    if (pred_end == MBB.end()) {
+      // we have found a prendend or predbegin instruction
+      if (mbb_iter->getOpcode() == CBG::PREDBLOCKREG_END ||
+          mbb_iter->getOpcode() == CBG::PREDBLOCKREG_BEGIN_T ||
+          mbb_iter->getOpcode() == CBG::PREDBLOCKREG_BEGIN_F) {
+        // save that we have found one and continue
         pred_end = mbb_iter;
         ++mbb_iter;
         continue;
-      } else {
-        // we have found a second predend instruction,
-        // so we have to remove it
+      }
+    } else {
+      // pred_end has been set
+      if (mbb_iter->getOpcode() == CBG::PREDBLOCKREG_END ||
+          mbb_iter->getOpcode() == CBG::PREDBLOCKREG_BEGIN_T ||
+          mbb_iter->getOpcode() == CBG::PREDBLOCKREG_BEGIN_F) {
+        // we have found the beginning of a predicated block, so
+        // we should remove any predecessing predend or predbegin
+        // instructions
         pred_end->eraseFromParent();
         pred_end = MBB.end();
         mbb_iter = MBB.begin();
         continue;
       }
-    } else if (mbb_iter->getOpcode() == CBG::PREDBLOCKREG_BEGIN_T ||
-               mbb_iter->getOpcode() == CBG::PREDBLOCKREG_BEGIN_F) {
-      // we have found the beginning of a predicated block, so
-      // we should remove any predecessing predend instructions
-      if (pred_end != MBB.end()) {
-        // we have found a predend instruction predecessing
-        // a predbegin instruction which means that we can
-        // remove it
-        pred_end->eraseFromParent();
-        pred_end = MBB.end();
-        mbb_iter = MBB.begin();
-        continue;
-      }
-
     }
     // if pred_end has been defined and we did not have any
     // predend or predbegin block, we have to clear the pred_end
@@ -517,6 +571,31 @@ void PredicatedBlocksRegPass::removePredEnds(MachineBasicBlock &MBB) {
   }
 
 
+}
+
+/**
+ * @brief Analyzes the given MBB and returns true, if it contains
+ *        at least one instruction which sets the ICCs of the SPARC psr.
+ * @param MBB The machine basic block to test.
+ * @return False, if there is no defining instruction, true otherwise.
+ */
+bool PredicatedBlocksCCPass::definesICC(MachineBasicBlock &MBB) {
+  int define_counter = 0;
+  MachineBasicBlock::reverse_iterator mbb_iter;
+  const TargetRegisterInfo* registerInfo = TM.getRegisterInfo();
+
+  // check for ever instruction within current MBB
+  for (mbb_iter = MBB.rbegin(); mbb_iter != MBB.rend(); ++mbb_iter) {
+    // if the current instruction defines the ICC, increment counter
+    if (mbb_iter->definesRegister(CBG::ICC, registerInfo)) {
+      define_counter++;
+    }
+  }
+  if (define_counter > 0) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 /**
@@ -543,7 +622,11 @@ bool PredicatedBlocksCCPass::insertPredicatedBlock(MachineBasicBlock &TBB,
   int conditionCode;
   bool Changed = false;
 
-  if (btype == IFELSEBRANCH) {
+
+
+  // in the case of an if-else branch, none of them may change the
+  // ICC register
+  if (btype == IFELSEBRANCH && !definesICC(TBB) && !definesICC(FBB)) {
 
     // in the case of an if-then-else construction,
     // we have to handle the following CFG:
@@ -608,7 +691,9 @@ bool PredicatedBlocksCCPass::insertPredicatedBlock(MachineBasicBlock &TBB,
 
     }
 
-  } else if (btype == IFBRANCH) {
+  // in the case of a single if-branch, TBB is not allowed to
+  // define the ICC
+  } else if (btype == IFBRANCH && !definesICC(TBB)) {
 
     // in the case of an if-then-end construction,
     // we have to handle the following CFG:
@@ -778,6 +863,9 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
       pregList = removePredRegClears(TBB);
       pregList2 = removePredRegClears(FBB);
 
+      // clear all pregs before begin of TBB
+      pregList = unitePredRegLists(pregList, pregList2);
+
       // clear the current predicate register
       BuildMI(*predecessor, predecessor->end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDREGCLEAR))
         .addReg(nextPReg, RegState::Define);
@@ -796,6 +884,9 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
       BuildMI(TBB, TBB.begin(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDBLOCKREG_BEGIN_T))
         .addReg(nextPReg);
 
+      // replace all occuring predends by predbegin[nextPreg][t]
+      replacePredEnds(TBB, nextPReg, 1);
+
       // if the list of used pred registers of FBB contains any entries, we have to insert a block end instruction
       if (pregList2.size() > 0) {
         BuildMI(TBB, TBB.end(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDBLOCKREG_END));
@@ -811,6 +902,9 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
       BuildMI(FBB, FBB.begin(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDBLOCKREG_BEGIN_F))
         .addReg(nextPReg);
 
+      // replace all occuring predends by predbegin[nextPreg][t]
+      replacePredEnds(FBB, nextPReg, 0);
+
       // add end predicated block instruction at end of FBB, resp. before the unconditional branch of FBB
       BuildMI(FBB, mbb_iter, dbg_loc, TM.getInstrInfo()->get(CBG::PREDBLOCKREG_END));
 
@@ -824,7 +918,7 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
         mergeBlocks(*predecessor, *successor);
       }
 
-      // remove redundant predends from newly built MBB
+      // remove redundant predends and from newly built MBB
       removePredEnds(*predecessor);
 
       // save that we have changed the structure of the function
@@ -889,6 +983,9 @@ bool PredicatedBlocksRegPass::insertPredicatedBlock(MachineBasicBlock &TBB, Mach
       // add start predicated block instruction at begin of TBB
       BuildMI(TBB, TBB.begin(), dbg_loc, TM.getInstrInfo()->get(CBG::PREDBLOCKREG_BEGIN_T))
         .addReg(nextPReg);
+
+      // replace all predends within current MBB
+      replacePredEnds(TBB, nextPReg, 1);
 
       // add end predicated block instruction at end of TBB
       BuildMI(TBB, mbb_iter, dbg_loc, TM.getInstrInfo()->get(CBG::PREDBLOCKREG_END));
@@ -1251,7 +1348,9 @@ bool PredicatedInstrCCPass::insertPredicatedBlock(MachineBasicBlock &TBB, Machin
   int conditionCode;
   bool Changed = false;
 
-  if (btype == IFELSEBRANCH) {
+  // in the case of an if-else branch, none of them may change the
+  // ICC register
+  if (btype == IFELSEBRANCH && !definesICC(TBB) && !definesICC(FBB)) {
 
     // in the case of an if-then-else construction,
     // we have to handle the following CFG:
@@ -1300,7 +1399,9 @@ bool PredicatedInstrCCPass::insertPredicatedBlock(MachineBasicBlock &TBB, Machin
 
     }
 
-  } else if (btype == IFBRANCH) {
+  // in the case of a single if-branch, TBB is not allowed to
+  // define the ICC
+  } else if (btype == IFBRANCH && !definesICC(TBB)) {
 
     // in the case of an if-then-end construction,
     // we have to handle the following CFG:

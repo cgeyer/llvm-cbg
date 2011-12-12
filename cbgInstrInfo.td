@@ -55,6 +55,8 @@ def HasVLIWIfElse : Predicate<"Subtarget.hasVLIWIfElse()">;
 // Instruction Pattern Stuff
 //===----------------------------------------------------------------------===//
 
+def simm8  : PatLeaf<(imm), [{ return isInt<8>(N->getSExtValue()); }]>;
+
 def simm11  : PatLeaf<(imm), [{ return isInt<11>(N->getSExtValue()); }]>;
 
 def simm13  : PatLeaf<(imm), [{ return isInt<13>(N->getSExtValue()); }]>;
@@ -726,7 +728,7 @@ let Predicates = [HasSelCC], Uses = [ICC] in {
     : Pseudo<(outs IntRegs:$dst), (ins  i32imm:$im1, i32imm:$im2, CCOp:$cc),
              "sel[$cc] $im1, $im2, $dst",
              [(set IntRegs:$dst, 
-                          (SPselecticc simm11:$im1, simm11:$im2, imm:$cc))]>;
+                          (SPselecticc simm8:$im1, simm8:$im2, imm:$cc))]>;
   def SELcc_ri
     : Pseudo<(outs IntRegs:$dst), (ins IntRegs:$src1, i32imm:$im2, CCOp:$cc),
              "sel[$cc] $src1, $im2, $dst",
@@ -763,10 +765,11 @@ let Predicates = [HasHWLoop, HasHWLoops] in {
              []>;
   def HWLOOPinit
     : Pseudo<(outs HWLOOPRegs:$dst), (ins brtarget:$src),
-             "inithwloop $src, $dst",
+             "hwloop init $src, $dst",
              []>;
 }
 
+// predicated blocks on icc
 let Predicates = [HasPredBlocksCC], Uses = [ICC] in {
   def PREDBLOCKCC_BEGIN
     : Pseudo<(outs), (ins CCOp:$cc),
@@ -778,6 +781,7 @@ let Predicates = [HasPredBlocksCC], Uses = [ICC] in {
              []>;
 }
 
+// predicated blocks on pregs
 let Predicates = [HasPredBlocksReg] in {
   def PREDBLOCKREG_BEGIN_T
     : Pseudo<(outs), (ins PREDRegs:$pred),

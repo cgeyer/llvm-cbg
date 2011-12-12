@@ -422,13 +422,17 @@ HWLoopPass::LoopBounds HWLoopPass::findLoopBound(MachineBasicBlock &MBB) {
         possibleIndexVar = &(mbb_iter->getOperand(1));
         possibleLoopBound = &(mbb_iter->getOperand(2));
 
-        do {
-          ++mbb_iter;
+        ++mbb_iter;
+
+        while (mbb_iter != MBB.rend()) {
           OpCode = mbb_iter->getOpcode();
           if (OpCode == CBG::SUBri || OpCode == CBG::SUBrr || OpCode == CBG::ADDri || OpCode == CBG::ADDrr) {
             break;
           }
-        } while (mbb_iter != MBB.rend());
+          ++mbb_iter;
+        }
+
+
 
         if (mbb_iter != MBB.rend()) {
 
@@ -575,6 +579,8 @@ bool HWLoopPass::runOnMachineFunction(MachineFunction &F) {
       FI != FE; ++FI) {
     possible_loops = getPossibleLoops(*FI);
     if (possible_loops.size() == 1) {
+//      std::cerr << "Found loop candidate..." << std::endl;
+//      FI->dump();
       Changed |= runOnMachineBasicBlock(*FI);
     }
   }
@@ -583,7 +589,9 @@ bool HWLoopPass::runOnMachineFunction(MachineFunction &F) {
 
 bool HWLoopPass::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
   LoopBounds loopOperand = findLoopBound(MBB);
+//  std::cerr << "Valid loop: " << loopOperand.isValidLoop << std::endl;
   if (loopOperand.isValidLoop) {
+
     insertSingleHWLoop(MBB, loopOperand.LoopBound, loopOperand.needsIncrement);
     removeIndexVar(MBB, loopOperand.IndexVar);
     return true;
