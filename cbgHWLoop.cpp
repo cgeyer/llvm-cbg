@@ -205,6 +205,12 @@ void HWLoopPass::updatePredecessors(MachineBasicBlock* newMBB, MachineBasicBlock
           instr_it->getOperand(0).setMBB(newMBB);
         }
       }
+      // update hwloop branch targets
+      if (instr_it->getOpcode() == CBG::HWLOOPinit) {
+        if (instr_it->getOperand(1).isMBB() && instr_it->getOperand(1).getMBB() == MBB) {
+          instr_it->getOperand(1).setMBB(newMBB);
+        }
+      }
     }
   }
 
@@ -262,6 +268,7 @@ void HWLoopPass::insertSingleHWLoop(MachineBasicBlock &MBB, MachineOperand &MO, 
   // update all predecessors of old block
   updatePredecessors(newMBB, &MBB);
   newMBB->addSuccessor(&MBB);
+  newMBB->addSuccessor(MBB.getNextNode());
 
   F->RenumberBlocks(newMBB);
 

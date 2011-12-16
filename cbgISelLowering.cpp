@@ -999,7 +999,7 @@ static SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG, const cbgSubtarget*
       SDValue tmpSDNode = TrueVal;
       TrueVal = FalseVal;
       FalseVal = tmpSDNode;
-      std::cerr << __func__ << "(): changed order of input values." << std::endl;
+//      std::cerr << __func__ << "(): changed order of input values." << std::endl;
       SPCC = static_cast<unsigned>(CBG::getOppositeBranchCondition(static_cast<CBGCC::CondCodes>(SPCC)));
     }
   } else {
