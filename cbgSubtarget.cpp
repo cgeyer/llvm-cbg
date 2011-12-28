@@ -24,7 +24,8 @@ cbgSubtarget::cbgSubtarget(const std::string &TT, const std::string &FS) :
     HasPredInstrReg(false),
     HasHWLoop(false),
     HasHWLoops(false),
-    HasVLIWIfElse(false) {
+    HasVLIWIfElse(false),
+    HasHWLoopOpt(false) {
   
   // Determine default and user specified characteristics
   const char *CPU = "v8";

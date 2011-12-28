@@ -57,16 +57,19 @@ namespace {
     TargetMachine &TM;
     unsigned LoopDepth;
     unsigned LoopCount;
+    bool RemoveIndexVar;
 
     virtual MBB_list getPossibleLoops(MachineBasicBlock &MBB) const;
     virtual void insertSingleHWLoop(MachineBasicBlock &MBB, MachineOperand &MO, bool needsIncrement);
     virtual void removeIndexVar(MachineBasicBlock &MBB, unsigned regNumber);
+    virtual void removeConditionalBranch(MachineBasicBlock &MBB);
 
   public:
 
-    explicit HWLoopPass(TargetMachine &tm, unsigned loopDepth) : MachineFunctionPass(ID), TM(tm),
+    explicit HWLoopPass(TargetMachine &tm, unsigned loopDepth, bool rIndexVar) : MachineFunctionPass(ID), TM(tm),
                                                                  LoopDepth(loopDepth),
-                                                                 LoopCount(0) {}
+                                                                 LoopCount(0),
+                                                                 RemoveIndexVar(rIndexVar) {}
 
     /*virtual bool doInitialization(Loop* loop, LPPassManager &LPM) { DD_PRINT(__func__); return false; }
     virtual bool runOnLoop(Loop* loop, LPPassManager &LPM);
@@ -232,6 +235,10 @@ void HWLoopPass::insertSingleHWLoop(MachineBasicBlock &MBB, MachineOperand &MO, 
   MachineFunction *F = MBB.getParent();
   const BasicBlock *LLVM_BB = MBB.getBasicBlock();
 
+  // if we have to increment the loop bound register, we have
+  // have to find an unused register
+  TargetRegisterClass::iterator reg_iter;
+
   // create new machine basic block in current function
   MachineBasicBlock* newMBB = F->CreateMachineBasicBlock(LLVM_BB);
   MachineFunction::iterator func_it = F->begin();
@@ -256,11 +263,21 @@ void HWLoopPass::insertSingleHWLoop(MachineBasicBlock &MBB, MachineOperand &MO, 
   // if the needsIncrement boolean is set, we have to increment
   // the register value before using it
   if (needsIncrement) {
+    // get next free register number
+    reg_iter = CBG::IntRegsRegisterClass->allocation_order_begin(*F);
+    while (MBB.isLiveIn(*reg_iter)) {
+      ++reg_iter;
+    }
     mi = BuildMI(*newMBB, newMBB->end(), dbg_loc, TM.getInstrInfo()->get(CBG::ADDri));
-    mi.addReg(MO.getReg(), RegState::Define).addReg(MO.getReg(), RegState::Kill).addImm(1);
+    mi.addReg(*reg_iter, RegState::Define).addReg(MO.getReg()).addImm(1);
+
+    mi = BuildMI(*newMBB, newMBB->end(), dbg_loc, TM.getInstrInfo()->get(CBG::HWLOOPinit));
+    mi.addReg(CBG::HWLOOP3, RegState::Define).addReg(*reg_iter, RegState::Kill);
+
+  } else {
+    mi = BuildMI(*newMBB, newMBB->end(), dbg_loc, TM.getInstrInfo()->get(CBG::HWLOOPinit));
+    mi.addReg(CBG::HWLOOP3, RegState::Define).addOperand(MO);
   }
-  mi = BuildMI(*newMBB, newMBB->end(), dbg_loc, TM.getInstrInfo()->get(CBG::HWLOOPinit));
-  mi.addReg(CBG::HWLOOP3, RegState::Define).addOperand(MO);
 
   // insert hardware loop instruction at end of new block
   mi = BuildMI(*newMBB, newMBB->end(), dbg_loc, TM.getInstrInfo()->get(CBG::HWLOOP));
@@ -523,17 +540,12 @@ HWLoopPass::LoopBounds HWLoopPass::findLoopBound(MachineBasicBlock &MBB) {
 }
 
 /**
- * @brief Tries to remove all instructions of the given basic block where the
- *        index register is involved if this is possible. At least compare and
- *        conditional branch at the end of the given machine basic block are
- *        removed.
- * @param MBB       Machine basic block to check.
- * @param regNumber Register number containing the index variable.
+ * @brief Removes last conditional branch at the end of the given machine basic block.
+ * @param MBB Machine basic block to check.
  */
-void HWLoopPass::removeIndexVar(MachineBasicBlock &MBB, unsigned regNumber) {
+void HWLoopPass::removeConditionalBranch(MachineBasicBlock &MBB) {
 
   MachineBasicBlock::reverse_iterator mbb_iter;
-  bool isUsed = false;
 
   // remove last two instructions (conditional branch and compare)
   MBB.rbegin()->eraseFromParent();
@@ -546,7 +558,18 @@ void HWLoopPass::removeIndexVar(MachineBasicBlock &MBB, unsigned regNumber) {
     }
     ++mbb_iter;
   }
+}
 
+/**
+ * @brief Tries to remove all instructions of the given basic block where the
+ *        index register is involved if this is possible.
+ * @param MBB       Machine basic block to check.
+ * @param regNumber Register number containing the index variable.
+ */
+void HWLoopPass::removeIndexVar(MachineBasicBlock &MBB, unsigned regNumber) {
+
+  MachineBasicBlock::reverse_iterator mbb_iter;
+  bool isUsed = false;
 
   // check, whether loop index is used as input for any other value
   for (mbb_iter = MBB.rbegin(); mbb_iter != MBB.rend(); ++mbb_iter) {
@@ -600,13 +623,17 @@ bool HWLoopPass::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
   if (loopOperand.isValidLoop) {
 
     insertSingleHWLoop(MBB, loopOperand.LoopBound, loopOperand.needsIncrement);
-    removeIndexVar(MBB, loopOperand.IndexVar);
+    removeConditionalBranch(MBB);
+    // only remove index variable if option is specified
+    if (RemoveIndexVar) {
+      removeIndexVar(MBB, loopOperand.IndexVar);
+    }
     return true;
   }
   return false;
 }
 
-FunctionPass* llvm::createcbgHWLoopPass(TargetMachine &tm, unsigned loopDepth) {
+FunctionPass* llvm::createcbgHWLoopPass(TargetMachine &tm, unsigned loopDepth, bool rIndexVar) {
   DD_PRINT(__func__);
-  return new HWLoopPass(tm, loopDepth);
+  return new HWLoopPass(tm, loopDepth, rIndexVar);
 }

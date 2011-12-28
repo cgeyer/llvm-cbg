@@ -41,6 +41,10 @@ def FeaturePredInstrReg
 def FeatureHWLoop
   : SubtargetFeature<"singleloop", "HasHWLoop", "true",
                      "Enable hardware support for single loop">;
+
+def FeatureHWLoopOpt
+  : SubtargetFeature<"hwloopopt", "HasHWLoopOpt", "true",
+                     "Enable hardware loop code optimizations">;
 // def FeatureHWLoops
 //   : SubtargetFeature<"nestedloops", "HasHWLoops", "true",
 //                      "Enable hardware support for nested loops - currently not implemented (same as singleloop)">;
@@ -66,9 +70,9 @@ class Proc<string Name, list<SubtargetFeature> Features>
  : Processor<Name, NoItineraries, Features>;
 
 def : Proc<"v8",                    []>;
-def : Proc<"v8-blockicc-movcc",     [FeatureMovCC, FeaturePredBlocksCC, FeatureHWLoop]>;
-def : Proc<"v8-blockpreg-selcc",    [FeatureSelCC, FeaturePredBlocksReg, FeatureHWLoop]>;
-def : Proc<"v8-blockicc-selcc",     [FeatureSelCC, FeaturePredBlocksCC, FeatureHWLoop]>;
+def : Proc<"v8-blockicc-movcc",     [FeatureMovCC, FeaturePredBlocksCC, FeatureHWLoop, FeatureHWLoopOpt]>;
+def : Proc<"v8-blockpreg-selcc",    [FeatureSelCC, FeaturePredBlocksReg, FeatureHWLoop, FeatureHWLoopOpt]>;
+def : Proc<"v8-blockicc-selcc",     [FeatureSelCC, FeaturePredBlocksCC, FeatureHWLoop, FeatureHWLoopOpt]>;
 // def : Proc<"v8-selcc",        [FeatureSelCC]>;
 // def : Proc<"v8-movcc",        [FeatureMovCC]>;
 // def : Proc<"v8-predblockscc", [FeaturePredBlocksCC]>;

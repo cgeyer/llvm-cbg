@@ -60,9 +60,9 @@ bool cbgTargetMachine::addPreEmitPass(PassManagerBase &PM,
   }
 
   if (Subtarget.hasHWLoop()) {
-    PM.add(createcbgHWLoopPass(*this, 1));
+    PM.add(createcbgHWLoopPass(*this, 1, Subtarget.hasHWLoopOpt()));
   } else if (Subtarget.hasHWLoops()) {
-    PM.add(createcbgHWLoopPass(*this, 2));
+    PM.add(createcbgHWLoopPass(*this, 2, Subtarget.hasHWLoopOpt()));
   }
 
   PM.add(createcbgFPMoverPass(*this));

@@ -33,6 +33,7 @@ class cbgSubtarget : public TargetSubtarget {
   bool HasHWLoops;      // target provides hardware support for nested loops
   bool HasVLIWIfElse;   // target provides hardware support for concurrent
                         // execution of if and else branch
+  bool HasHWLoopOpt;    // compiler does not optimize hardware loop assembler code
   
 public:
   cbgSubtarget(const std::string &TT, const std::string &FS);
@@ -45,6 +46,7 @@ public:
   bool hasPredInstrReg() const { return HasPredInstrReg; }
   bool hasHWLoop() const { return HasHWLoop; }
   bool hasHWLoops() const { return HasHWLoops; }
+  bool hasHWLoopOpt() const {return HasHWLoopOpt; }
   bool hasVLIWIfElse() const { return HasVLIWIfElse; }
   
   /// ParseSubtargetFeatures - Parses features string setting specified 

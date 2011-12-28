@@ -30,7 +30,7 @@ namespace llvm {
   FunctionPass *createcbgFPMoverPass(TargetMachine &TM);
   // Function pass for finding loops which can be transformed
   // to hardware loops
-  FunctionPass *createcbgHWLoopPass(TargetMachine &TM, unsigned loopDepth);
+  FunctionPass *createcbgHWLoopPass(TargetMachine &TM, unsigned loopDepth, bool rIndexVar);
   // Function pass for inserting predicated blocks instead of branches
   FunctionPass *createcbgPredBlockCCPass(TargetMachine &TM);
   FunctionPass *createcbgPredBlockRegPass(TargetMachine &TM);

@@ -101,6 +101,16 @@ FunctionPass *llvm::createcbgDelaySlotFillerPass(TargetMachine &tm) {
 bool Filler::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
   bool Changed = false;
 
+  // check, whether current MBB is successor of a hwloop MBB
+  if (MBB.size() == 1) {
+    MachineBasicBlock* predecessor = MBB.getPrevNode();
+    // a hardware loop has to consist of at least two instructions => insert nop
+    if (predecessor->rbegin()->getOpcode() == CBG::HWLOOP) {
+      BuildMI(MBB, MBB.end(), MBB.begin()->getDebugLoc(), TII->get(CBG::NOP));
+      return true;
+    }
+  }
+
   for (MachineBasicBlock::iterator I = MBB.begin(); I != MBB.end(); ++I)
     if (I->getDesc().hasDelaySlot()) {
       MachineBasicBlock::iterator D = MBB.end();
