@@ -3,6 +3,10 @@
  *
  *  Created on: Nov 1, 2011
  *      Author: cbg
+ *
+ * This file is distributed under the University of Illinois Open Source
+ * License. See LICENSE.TXT for details.
+ *
  */
 
 #include "cbg.h"

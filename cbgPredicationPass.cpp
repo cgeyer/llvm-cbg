@@ -3,6 +3,10 @@
  *
  * @date 2011-11-14
  * @author Clemens Bernhard Geyer
+ *
+ * This file is distributed under the University of Illinois Open Source
+ * License. See LICENSE.TXT for details.
+ *
  */
 
 #include "cbg.h"
