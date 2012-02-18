@@ -10,7 +10,7 @@ conditions as LLVM. See LICENSE.TXT for details.
 Version 1.00
 
 How to get the backend working:
-	(1) Download LLVM 2.9 from http://llvm.org/
+	(1) Download LLVM 2.9 source code from http://llvm.org/releases/download.html#2.9
 	(2) Extract the archive 'tar xvf llvm-2.9.tgz'
 	(4) Copy the patch file (add-cbg-backend.patch) to your llvm root directory 
 	    (usually something like /home/user/llvm-2.9/)
